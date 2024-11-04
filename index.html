@@ -76,16 +76,6 @@
             background-color: #f8f8f8;
         }
 
-        .cycle-arrow {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-
         .molecule {
             position: absolute;
             width: 60px;
@@ -104,7 +94,6 @@
             text-align: center;
             padding: 5px;
             word-wrap: break-word;
-            z-index: 2;
         }
 
         .molecule.dragging {
@@ -184,20 +173,13 @@
                 <h2>Krebs Cycle Game</h2>
                 <div class="score">Score: <span id="score">0</span></div>
             </div>
-            <div class="game-area" id="game-area">
-                <svg class="cycle-arrow" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-                            refX="9" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
-                        </marker>
-                    </defs>
-                    <path d="M 100,60 A 40,40 0 1 1 99.99,60" 
-                        fill="none" 
-                        stroke="#666" 
-                        stroke-width="1"
-                        marker-end="url(#arrowhead)"/>
-                </svg>
+            <div class="game-area" id="game-area"></div>
+            <div class="controls-container">
+                <div id="message"></div>
+                <div class="controls">
+                    <button id="reset-btn">Reset</button>
+                    <button id="hint-btn">Hint</button>
+                </div>
             </div>
         </div>
     </div>
@@ -224,10 +206,10 @@
                     { name: "Malate", color: "#DAA520" },
                     { name: "Oxaloacetate", color: "#607D8B" }
                 ];
-    
+
                 this.init();
             }
-    
+
             init() {
                 this.gameArea = document.getElementById('game-area');
                 this.scoreElement = document.getElementById('score');
@@ -235,40 +217,31 @@
                 
                 document.getElementById('reset-btn').addEventListener('click', () => this.reset());
                 document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
-    
+
                 this.createTargetZones();
                 this.createMolecules();
                 this.setupDragAndDrop();
-                this.placeCitrate();
-                this.showMessage("Step 1: Place the Substrates", "hint"); // Initial message
+                this.placeCitrate(); // Place Citrate at the start
             }
-    
+
             createTargetZones() {
                 const centerX = this.gameArea.clientWidth / 2;
                 const centerY = this.gameArea.clientHeight / 2;
                 const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
                 const verticalOffset = this.gameArea.clientHeight * 0.1;
-    
-                // Update SVG position and size
-                const arrow = this.gameArea.querySelector('.cycle-arrow');
-                if (arrow) {
-                    arrow.style.width = `${this.gameArea.clientWidth}px`;
-                    arrow.style.height = `${this.gameArea.clientHeight}px`;
-                    // Adjust viewBox to match game area dimensions
-                    arrow.setAttribute('viewBox', `0 0 ${this.gameArea.clientWidth} ${this.gameArea.clientHeight}`);
-                }
-    
+
                 this.steps.forEach((step, index) => {
+                    // Start at -90 degrees (top) and go clockwise
                     const angle = ((index * 360 / this.steps.length) - 90) * (Math.PI / 180);
                     const x = centerX + radius * Math.cos(angle) - 35;
                     const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
-    
+
                     const zone = document.createElement('div');
                     zone.className = 'target-zone';
                     zone.style.left = `${x}px`;
                     zone.style.top = `${y}px`;
                     zone.dataset.index = index;
-    
+
                     this.gameArea.appendChild(zone);
                     this.targetZones.push(zone);
                 });
@@ -386,74 +359,69 @@
             }
 
             checkPlacement() {
-            const moleculeRect = this.currentMolecule.getBoundingClientRect();
-            const moleculeCenter = {
-                x: moleculeRect.left + moleculeRect.width / 2,
-                y: moleculeRect.top + moleculeRect.height / 2
-            };
-
-            let closestZone = null;
-            let minDistance = Infinity;
-
-            this.targetZones.forEach(zone => {
-                const zoneRect = zone.getBoundingClientRect();
-                const zoneCenter = {
-                    x: zoneRect.left + zoneRect.width / 2,
-                    y: zoneRect.top + zoneRect.height / 2
+                const moleculeRect = this.currentMolecule.getBoundingClientRect();
+                const moleculeCenter = {
+                    x: moleculeRect.left + moleculeRect.width / 2,
+                    y: moleculeRect.top + moleculeRect.height / 2
                 };
 
-                const distance = Math.hypot(
-                    moleculeCenter.x - zoneCenter.x,
-                    moleculeCenter.y - zoneCenter.y
-                );
+                let closestZone = null;
+                let minDistance = Infinity;
 
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestZone = zone;
-                }
-            });
+                this.targetZones.forEach(zone => {
+                    const zoneRect = zone.getBoundingClientRect();
+                    const zoneCenter = {
+                        x: zoneRect.left + zoneRect.width / 2,
+                        y: zoneRect.top + zoneRect.height / 2
+                    };
 
-            if (minDistance < 50) {
-                const zoneIndex = parseInt(closestZone.dataset.index);
-                const isCorrect = this.steps[zoneIndex].name === this.currentMolecule.dataset.name;
+                    const distance = Math.hypot(
+                        moleculeCenter.x - zoneCenter.x,
+                        moleculeCenter.y - zoneCenter.y
+                    );
 
-                if (isCorrect) {
-                    this.score += 10;
-                    this.scoreElement.textContent = this.score;
-                    this.showMessage('Correct! +10 points', 'correct');
-                    
-                    const zoneRect = closestZone.getBoundingClientRect();
-                    const gameRect = this.gameArea.getBoundingClientRect();
-                    this.currentMolecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
-                    this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
-                    
-                    this.currentMolecule.style.pointerEvents = 'none';
-                    
-                    if (this.score === this.steps.length * 10) {
-                        this.messageElement.style.color = 'white';
-                        this.showMessage("Congratulations! You've completed Step 1", 'correct');
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestZone = zone;
                     }
-                } else {
-                    this.score = Math.max(0, this.score - 5);
-                    this.scoreElement.textContent = this.score;
-                    this.showMessage('Try again! -5 points', 'incorrect');
+                });
+
+                if (minDistance < 50) {
+                    const zoneIndex = parseInt(closestZone.dataset.index);
+                    const isCorrect = this.steps[zoneIndex].name === this.currentMolecule.dataset.name;
+
+                    if (isCorrect) {
+                        this.score += 10;
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Correct! +10 points', 'correct');
+                        
+                        const zoneRect = closestZone.getBoundingClientRect();
+                        const gameRect = this.gameArea.getBoundingClientRect();
+                        this.currentMolecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
+                        this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
+                        
+                        this.currentMolecule.style.pointerEvents = 'none';
+                        
+                        if (this.score === this.steps.length * 10) {
+                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 5);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Try again! -5 points', 'incorrect');
+                    }
                 }
             }
-        }
 
-        showMessage(text, type) {
-            this.messageElement.textContent = text;
-            this.messageElement.className = type;
-            this.messageElement.style.display = 'block';
-            
-            // Only clear the message if it's not the initial message or final congratulations
-            if (text !== "Step 1: Place the Substrates" && 
-                !text.includes("Congratulations")) {
+            showMessage(text, type) {
+                this.messageElement.textContent = text;
+                this.messageElement.className = type;
+                this.messageElement.style.display = 'block';
+                
                 setTimeout(() => {
-                    this.messageElement.textContent = "Step 1: Place the Substrates";
+                    this.messageElement.textContent = '';
                 }, 2000);
             }
-        }
 
             showHint() {
                 const completedMolecules = new Set(
@@ -469,27 +437,26 @@
             }
 
             reset() {
-            this.molecules.forEach(molecule => molecule.remove());
-            this.targetZones.forEach(zone => zone.remove());
-            
-            this.score = 0;
-            this.scoreElement.textContent = '0';
-            this.molecules = [];
-            this.targetZones = [];
-            this.isDragging = false;
-            this.currentMolecule = null;
-            
-            this.createTargetZones();
-            this.createMolecules();
-            this.setupDragAndDrop();
-            this.placeCitrate();
-            this.showMessage("Step 1: Place the Substrates", "hint");
+                this.molecules.forEach(molecule => molecule.remove());
+                this.targetZones.forEach(zone => zone.remove());
+                
+                this.score = 0;
+                this.scoreElement.textContent = '0';
+                this.molecules = [];
+                this.targetZones = [];
+                this.isDragging = false;
+                this.currentMolecule = null;
+                
+                this.createTargetZones();
+                this.createMolecules();
+                this.setupDragAndDrop();
+                this.placeCitrate(); // Re-place Citrate after reset
+            }
         }
-    }
 
-    window.addEventListener('load', () => {
-        new KrebsCycleGame();
-    });
-</script>
+        window.addEventListener('load', () => {
+            new KrebsCycleGame();
+        });
+    </script>
 </body>
 </html>
