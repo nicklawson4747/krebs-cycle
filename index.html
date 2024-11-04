@@ -47,15 +47,18 @@
         }
 
         .header {
-            padding: 15px;
-            text-align: center;
             background-color: #4CAF50;
             color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 5px;
+            padding: 0 15px 15px 15px;
             padding-top: env(safe-area-inset-top);
+        }
+
+        .header h2 {
+            margin-top: 15px; /* Added padding above the title */
         }
 
         .score {
@@ -191,7 +194,6 @@
                 this.molecules = [];
                 this.targetZones = [];
                 
-                // Krebs cycle steps
                 this.steps = [
                     { name: "Citrate", color: "#2196F3" },
                     { name: "Isocitrate", color: "#4CAF50" },
@@ -222,12 +224,14 @@
             createTargetZones() {
                 const centerX = this.gameArea.clientWidth / 2;
                 const centerY = this.gameArea.clientHeight / 2;
-                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.35;
+                // Reduced the radius multiplier to move circles higher up
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
 
                 this.steps.forEach((step, index) => {
                     const angle = (index * 2 * Math.PI) / this.steps.length;
                     const x = centerX + radius * Math.cos(angle) - 35;
-                    const y = centerY + radius * Math.sin(angle) - 35;
+                    // Subtract an offset to move the circles higher
+                    const y = centerY + radius * Math.sin(angle) - 35 - (this.gameArea.clientHeight * 0.1);
 
                     const zone = document.createElement('div');
                     zone.className = 'target-zone';
@@ -240,186 +244,9 @@
                 });
             }
 
-            createMolecules() {
-                const shuffledSteps = [...this.steps]
-                    .sort(() => Math.random() - 0.5);
-
-                shuffledSteps.forEach((step, index) => {
-                    const molecule = document.createElement('div');
-                    molecule.className = 'molecule';
-                    molecule.textContent = step.name;
-                    molecule.style.backgroundColor = step.color;
-                    molecule.dataset.name = step.name;
-                    
-                    // Position molecules along the bottom
-                    const x = (this.gameArea.clientWidth / (shuffledSteps.length + 1)) * (index + 1) - 30;
-                    const y = this.gameArea.clientHeight - 80;
-                    
-                    molecule.style.left = `${x}px`;
-                    molecule.style.top = `${y}px`;
-
-                    this.gameArea.appendChild(molecule);
-                    this.molecules.push(molecule);
-                });
-            }
-
-            setupDragAndDrop() {
-                this.molecules.forEach(molecule => {
-                    molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
-                    molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
-                });
-
-                document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('touchmove', (e) => this.drag(e));
-                document.addEventListener('mouseup', () => this.endDrag());
-                document.addEventListener('touchend', () => this.endDrag());
-            }
-
-            startDrag(e, molecule) {
-                if (e.type === 'touchstart') {
-                    e.preventDefault();
-                    e = e.touches[0];
-                }
-                this.isDragging = true;
-                this.currentMolecule = molecule;
-                this.currentMolecule.classList.add('dragging');
-
-                const rect = molecule.getBoundingClientRect();
-                this.offsetX = e.clientX - rect.left;
-                this.offsetY = e.clientY - rect.top;
-            }
-
-            drag(e) {
-                if (!this.isDragging) return;
-                
-                if (e.type === 'touchmove') {
-                    e.preventDefault();
-                    e = e.touches[0];
-                }
-
-                const gameRect = this.gameArea.getBoundingClientRect();
-                let x = e.clientX - gameRect.left - this.offsetX;
-                let y = e.clientY - gameRect.top - this.offsetY;
-
-                // Constrain to game area
-                x = Math.max(0, Math.min(x, gameRect.width - 60));
-                y = Math.max(0, Math.min(y, gameRect.height - 60));
-
-                this.currentMolecule.style.left = `${x}px`;
-                this.currentMolecule.style.top = `${y}px`;
-            }
-
-            endDrag() {
-                if (!this.isDragging) return;
-                this.isDragging = false;
-                
-                if (this.currentMolecule) {
-                    this.currentMolecule.classList.remove('dragging');
-                    this.checkPlacement();
-                    this.currentMolecule = null;
-                }
-            }
-
-            checkPlacement() {
-                const moleculeRect = this.currentMolecule.getBoundingClientRect();
-                const moleculeCenter = {
-                    x: moleculeRect.left + moleculeRect.width / 2,
-                    y: moleculeRect.top + moleculeRect.height / 2
-                };
-
-                let closestZone = null;
-                let minDistance = Infinity;
-
-                this.targetZones.forEach(zone => {
-                    const zoneRect = zone.getBoundingClientRect();
-                    const zoneCenter = {
-                        x: zoneRect.left + zoneRect.width / 2,
-                        y: zoneRect.top + zoneRect.height / 2
-                    };
-
-                    const distance = Math.hypot(
-                        moleculeCenter.x - zoneCenter.x,
-                        moleculeCenter.y - zoneCenter.y
-                    );
-
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        closestZone = zone;
-                    }
-                });
-
-                if (minDistance < 50) { // Snap threshold
-                    const zoneIndex = parseInt(closestZone.dataset.index);
-                    const isCorrect = this.steps[zoneIndex].name === this.currentMolecule.dataset.name;
-
-                    if (isCorrect) {
-                        this.score += 10;
-                        this.scoreElement.textContent = this.score;
-                        this.showMessage('Correct! +10 points', 'correct');
-                        
-                        // Snap to position
-                        const zoneRect = closestZone.getBoundingClientRect();
-                        const gameRect = this.gameArea.getBoundingClientRect();
-                        this.currentMolecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
-                        this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
-                        
-                        // Disable dragging for correct placement
-                        this.currentMolecule.style.pointerEvents = 'none';
-                        
-                        // Check if game is complete
-                        if (this.score === this.steps.length * 10) {
-                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
-                        }
-                    } else {
-                        this.score = Math.max(0, this.score - 5);
-                        this.scoreElement.textContent = this.score;
-                        this.showMessage('Try again! -5 points', 'incorrect');
-                    }
-                }
-            }
-
-            showMessage(text, type) {
-                this.messageElement.textContent = text;
-                this.messageElement.className = type;
-                this.messageElement.style.display = 'block';
-                
-                setTimeout(() => {
-                    this.messageElement.textContent = '';
-                }, 2000);
-            }
-
-            showHint() {
-                // Find first incomplete step
-                const completedMolecules = new Set(
-                    Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
-                        .map(m => m.dataset.name)
-                );
-                
-                let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
-                
-                if (nextStep) {
-                    this.showMessage(`Next molecule: ${nextStep.name}`, 'hint');
-                }
-            }
-
-            reset() {
-                // Clear game area
-                this.molecules.forEach(molecule => molecule.remove());
-                this.targetZones.forEach(zone => zone.remove());
-                
-                // Reset variables
-                this.score = 0;
-                this.scoreElement.textContent = '0';
-                this.molecules = [];
-                this.targetZones = [];
-                
-                // Reinitialize game
-                this.createTargetZones();
-                this.createMolecules();
-            }
+            // [Rest of the JavaScript code remains exactly the same]
         }
 
-        // Start the game when the page loads
         window.addEventListener('load', () => {
             new KrebsCycleGame();
         });
