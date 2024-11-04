@@ -58,7 +58,7 @@
         }
 
         .header h2 {
-            margin-top: 15px; /* Added padding above the title */
+            margin-top: 15px;
         }
 
         .score {
@@ -201,7 +201,7 @@
                     { name: "Succinyl-CoA", color: "#FF9800" },
                     { name: "Succinate", color: "#E91E63" },
                     { name: "Fumarate", color: "#00BCD4" },
-                    { name: "Malate", color: "#FFEB3B" },
+                    { name: "Malate", color: "#DAA520" },
                     { name: "Oxaloacetate", color: "#FF5722" }
                 ];
 
@@ -222,29 +222,26 @@
             }
 
             createTargetZones() {
-    const centerX = this.gameArea.clientWidth / 2;
-    const centerY = this.gameArea.clientHeight / 2;
-    // Changed from 0.35 to 0.3
-    const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
-    // Added vertical offset
-    const verticalOffset = this.gameArea.clientHeight * 0.1;
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
 
-    this.steps.forEach((step, index) => {
-        const angle = (index * 2 * Math.PI) / this.steps.length;
-        const x = centerX + radius * Math.cos(angle) - 35;
-        // Added verticalOffset to move circles higher
-        const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
+                this.steps.forEach((step, index) => {
+                    const angle = (index * 2 * Math.PI) / this.steps.length;
+                    const x = centerX + radius * Math.cos(angle) - 35;
+                    const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
 
-        const zone = document.createElement('div');
-        zone.className = 'target-zone';
-        zone.style.left = `${x}px`;
-        zone.style.top = `${y}px`;
-        zone.dataset.index = index;
+                    const zone = document.createElement('div');
+                    zone.className = 'target-zone';
+                    zone.style.left = `${x}px`;
+                    zone.style.top = `${y}px`;
+                    zone.dataset.index = index;
 
-        this.gameArea.appendChild(zone);
-        this.targetZones.push(zone);
-    });
-}
+                    this.gameArea.appendChild(zone);
+                    this.targetZones.push(zone);
+                });
+            }
 
             createMolecules() {
                 const shuffledSteps = [...this.steps]
@@ -410,9 +407,12 @@
                 this.scoreElement.textContent = '0';
                 this.molecules = [];
                 this.targetZones = [];
+                this.isDragging = false;
+                this.currentMolecule = null;
                 
                 this.createTargetZones();
                 this.createMolecules();
+                this.setupDragAndDrop();
             }
         }
 
