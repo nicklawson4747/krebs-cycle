@@ -224,14 +224,12 @@
             createTargetZones() {
                 const centerX = this.gameArea.clientWidth / 2;
                 const centerY = this.gameArea.clientHeight / 2;
-                // Modified radius and added offset
-                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
-                const verticalOffset = this.gameArea.clientHeight * 0.1;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.35;
 
                 this.steps.forEach((step, index) => {
                     const angle = (index * 2 * Math.PI) / this.steps.length;
                     const x = centerX + radius * Math.cos(angle) - 35;
-                    const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
+                    const y = centerY + radius * Math.sin(angle) - 35;
 
                     const zone = document.createElement('div');
                     zone.className = 'target-zone';
@@ -255,7 +253,6 @@
                     molecule.style.backgroundColor = step.color;
                     molecule.dataset.name = step.name;
                     
-                    // Position molecules along the bottom
                     const x = (this.gameArea.clientWidth / (shuffledSteps.length + 1)) * (index + 1) - 30;
                     const y = this.gameArea.clientHeight - 80;
                     
@@ -305,7 +302,6 @@
                 let x = e.clientX - gameRect.left - this.offsetX;
                 let y = e.clientY - gameRect.top - this.offsetY;
 
-                // Constrain to game area
                 x = Math.max(0, Math.min(x, gameRect.width - 60));
                 y = Math.max(0, Math.min(y, gameRect.height - 60));
 
