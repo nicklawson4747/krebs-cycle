@@ -196,13 +196,15 @@
                 
                 this.steps = [
                     { name: "Citrate", color: "#2196F3" },
+                    { name: "cis-Aconitate", color: "#9C27B0" },
                     { name: "Isocitrate", color: "#4CAF50" },
-                    { name: "α-Ketoglutarate", color: "#9C27B0" },
-                    { name: "Succinyl-CoA", color: "#FF9800" },
-                    { name: "Succinate", color: "#E91E63" },
-                    { name: "Fumarate", color: "#00BCD4" },
+                    { name: "Oxalosuccinate", color: "#FF9800" },
+                    { name: "α-Ketoglutarate", color: "#E91E63" },
+                    { name: "Succinyl-CoA", color: "#00BCD4" },
+                    { name: "Succinate", color: "#9575CD" },
+                    { name: "Fumarate", color: "#FF5722" },
                     { name: "Malate", color: "#DAA520" },
-                    { name: "Oxaloacetate", color: "#FF5722" }
+                    { name: "Oxaloacetate", color: "#607D8B" }
                 ];
 
                 this.init();
@@ -219,6 +221,7 @@
                 this.createTargetZones();
                 this.createMolecules();
                 this.setupDragAndDrop();
+                this.placeCitrate(); // Place Citrate at the start
             }
 
             createTargetZones() {
@@ -228,7 +231,8 @@
                 const verticalOffset = this.gameArea.clientHeight * 0.1;
 
                 this.steps.forEach((step, index) => {
-                    const angle = (index * 2 * Math.PI) / this.steps.length;
+                    // Start at -90 degrees (top) and go clockwise
+                    const angle = ((index * 360 / this.steps.length) - 90) * (Math.PI / 180);
                     const x = centerX + radius * Math.cos(angle) - 35;
                     const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
 
@@ -244,7 +248,8 @@
             }
 
             createMolecules() {
-                const shuffledSteps = [...this.steps]
+                // Create array of all steps except Citrate
+                const shuffledSteps = [...this.steps.slice(1)]
                     .sort(() => Math.random() - 0.5);
 
                 shuffledSteps.forEach((step, index) => {
@@ -254,6 +259,7 @@
                     molecule.style.backgroundColor = step.color;
                     molecule.dataset.name = step.name;
                     
+                    // Adjust spacing for 9 molecules instead of 10
                     const x = (this.gameArea.clientWidth / (shuffledSteps.length + 1)) * (index + 1) - 30;
                     const y = this.gameArea.clientHeight - 80;
                     
@@ -265,10 +271,41 @@
                 });
             }
 
+            placeCitrate() {
+                const citrate = {
+                    name: "Citrate",
+                    color: this.steps[0].color
+                };
+
+                const molecule = document.createElement('div');
+                molecule.className = 'molecule';
+                molecule.textContent = citrate.name;
+                molecule.style.backgroundColor = citrate.color;
+                molecule.dataset.name = citrate.name;
+                molecule.style.pointerEvents = 'none'; // Make it non-draggable
+
+                // Place it in the first target zone (top position)
+                const zone = this.targetZones[0];
+                const zoneRect = zone.getBoundingClientRect();
+                const gameRect = this.gameArea.getBoundingClientRect();
+                
+                molecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
+                molecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
+
+                this.gameArea.appendChild(molecule);
+                this.molecules.push(molecule);
+                
+                // Start with 10 points since Citrate is pre-placed
+                this.score = 10;
+                this.scoreElement.textContent = this.score;
+            }
+
             setupDragAndDrop() {
                 this.molecules.forEach(molecule => {
-                    molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
-                    molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
+                    if (molecule.dataset.name !== "Citrate") { // Don't add listeners to Citrate
+                        molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
+                        molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
+                    }
                 });
 
                 document.addEventListener('mousemove', (e) => this.drag(e));
@@ -413,6 +450,7 @@
                 this.createTargetZones();
                 this.createMolecules();
                 this.setupDragAndDrop();
+                this.placeCitrate(); // Re-place Citrate after reset
             }
         }
 
