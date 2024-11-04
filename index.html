@@ -3,15 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Krebs Cycle Adventure</title>
+    <title>Krebs Cycle Game</title>
     <style>
-        :root {
-            --primary: #2563eb;
-            --secondary: #4ade80;
-            --background: #f8fafc;
-            --text: #1e293b;
-        }
-
         * {
             margin: 0;
             padding: 0;
@@ -19,718 +12,401 @@
         }
 
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: var(--background);
-            color: var(--text);
-            overflow: hidden;
-            touch-action: none;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
         }
 
         #game-container {
-            width: 100vw;
-            height: 100vh;
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 9/16;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #game-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
         }
 
-        #hud {
-            padding: 1rem;
+        .header {
+            padding: 15px;
+            text-align: center;
+            background-color: #4CAF50;
+            color: white;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            gap: 5px;
         }
 
-        #score {
-            font-size: 1.25rem;
+        .score {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 3px 10px;
+            border-radius: 15px;
             font-weight: bold;
+            color: #333;
         }
 
-        #level {
-            font-size: 1.25rem;
-        }
-
-        #game-canvas {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-        }
-
-        #molecule-tray {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 1rem;
-            background: white;
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
-            touch-action: none;
+        .game-area {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #f8f8f8;
         }
 
         .molecule {
+            position: absolute;
             width: 60px;
             height: 60px;
+            background-color: #2196F3;
             border-radius: 50%;
             display: flex;
-            align-items: center;
             justify-content: center;
-            font-weight: bold;
+            align-items: center;
             color: white;
+            font-weight: bold;
             cursor: pointer;
             user-select: none;
-            touch-action: none;
+            transition: transform 0.2s;
+            font-size: 10px;
+            text-align: center;
+            padding: 5px;
+            word-wrap: break-word;
         }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
+        .molecule.dragging {
+            transform: scale(1.1);
             z-index: 1000;
         }
 
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            max-width: 90%;
-            max-height: 90%;
-            overflow-y: auto;
+        .target-zone {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border: 2px dashed #666;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .correct {
+            background-color: #4CAF50;
+        }
+
+        .incorrect {
+            background-color: #f44336;
+        }
+
+        .controls-container {
+            background-color: #333;
+            padding: 10px;
+        }
+
+        #message {
+            color: white;
             text-align: center;
+            padding: 5px;
+            margin-bottom: 10px;
+            min-height: 25px;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-around;
         }
 
         button {
-            background: var(--primary);
-            color: white;
+            padding: 8px 16px;
             border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.25rem;
-            cursor: pointer;
-            font-size: 1rem;
-            margin-top: 1rem;
-        }
-
-        button:hover {
-            opacity: 0.9;
-        }
-
-        #info-button {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            width: 2rem;
-            height: 2rem;
-            border-radius: 50%;
-            background: var(--primary);
+            border-radius: 5px;
+            background-color: #4CAF50;
             color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             cursor: pointer;
-            z-index: 100;
+            font-size: 14px;
         }
 
-        @media (max-width: 768px) {
-            .molecule {
-                width: 50px;
-                height: 50px;
-                font-size: 0.8rem;
-            }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <div id="hud">
-            <div id="score">Score: 0</div>
-            <div id="level">Level 1: Citrate Formation</div>
-        </div>
-        <canvas id="game-canvas"></canvas>
-        <div id="molecule-tray"></div>
-    </div>
-
-    <div id="info-button">i</div>
-
-    <div id="start-modal" class="modal">
-        <div class="modal-content">
-            <h2>Welcome to Krebs Cycle Adventure!</h2>
-            <p>Learn biochemistry by guiding molecules through the citric acid cycle.</p>
-            <p>Drag the correct molecules to combine them and progress through the cycle.</p>
-            <button onclick="startGame()">Start Game</button>
-        </div>
-    </div>
-
-    <div id="level-complete-modal" class="modal">
-        <div class="modal-content">
-            <h2>Level Complete!</h2>
-            <p id="level-complete-text"></p>
-            <button onclick="nextLevel()">Next Level</button>
-        </div>
-    </div>
-
-    <div id="info-modal" class="modal">
-        <div class="modal-content">
-            <h2>The Krebs Cycle</h2>
-            <p>Also known as the citric acid cycle, this is a key metabolic pathway that generates energy in cells.</p>
-            <p>Each level represents a different step in the cycle where specific molecules combine to form new compounds.</p>
-            <button onclick="closeInfoModal()">Close</button>
+        <div id="game-screen">
+            <div class="header">
+                <h2>Krebs Cycle Game</h2>
+                <div class="score">Score: <span id="score">0</span></div>
+            </div>
+            <div class="game-area" id="game-area"></div>
+            <div class="controls-container">
+                <div id="message"></div>
+                <div class="controls">
+                    <button id="reset-btn">Reset</button>
+                    <button id="hint-btn">Hint</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Game state
-        let score = 0;
-        let currentLevel = 1;
-        let draggedMolecule = null;
-        let molecules = [];
-        let targetMolecule = null;
-
-        // Canvas setup
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        let canvasWidth = 0;
-        let canvasHeight = 0;
-
-        // Molecule definitions
-        const MOLECULES = {
-            PYRUVATE: { name: 'Pyruvate', color: '#ef4444' },
-            ACETYL_COA: { name: 'Acetyl-CoA', color: '#f97316' },
-            OXALOACETATE: { name: 'Oxaloacetate', color: '#84cc16' },
-            CITRATE: { name: 'Citrate', color: '#14b8a6' },
-            ISOCITRATE: { name: 'Isocitrate', color: '#06b6d4' },
-            ALPHA_KETOGLUTARATE: { name: 'α-Ketoglutarate', color: '#6366f1' },
-            SUCCINATE: { name: 'Succinate', color: '#8b5cf6' },
-            FUMARATE: { name: 'Fumarate', color: '#ec4899' },
-            MALATE: { name: 'Malate', color: '#f43f5e' }
-        };
-
-        // Level definitions
-        const LEVELS = [
-            {
-                target: MOLECULES.CITRATE,
-                required: [MOLECULES.ACETYL_COA, MOLECULES.OXALOACETATE],
-                description: 'Combine Acetyl-CoA and Oxaloacetate to form Citrate'
-            },
-            {
-                target: MOLECULES.ISOCITRATE,
-                required: [MOLECULES.CITRATE],
-                description: 'Transform Citrate into Isocitrate'
-            },
-            {
-                target: MOLECULES.ALPHA_KETOGLUTARATE,
-                required: [MOLECULES.ISOCITRATE],
-                description: 'Convert Isocitrate to α-Ketoglutarate'
-            },
-            {
-                target: MOLECULES.SUCCINATE,
-                required: [MOLECULES.ALPHA_KETOGLUTARATE],
-                description: 'Transform α-Ketoglutarate to Succinate'
-            },
-            {
-                target: MOLECULES.FUMARATE,
-                required: [MOLECULES.SUCCINATE],
-                description: 'Convert Succinate to Fumarate'
-            },
-            {
-                target: MOLECULES.MALATE,
-                required: [MOLECULES.FUMARATE],
-                description: 'Transform Fumarate into Malate'
-            },
-            {
-                target: MOLECULES.OXALOACETATE,
-                required: [MOLECULES.MALATE],
-                description: 'Convert Malate back to Oxaloacetate'
-            }
-        ];
-
-        // Initialize game
-        function init() {
-            // Set canvas size
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-
-            // Show start modal
-            document.getElementById('start-modal').style.display = 'flex';
-
-            // Add info button listener
-            document.getElementById('info-button').addEventListener('click', showInfoModal);
-
-            // Add touch event listeners
-            canvas.addEventListener('touchstart', handleTouchStart, false);
-            canvas.addEventListener('touchmove', handleTouchMove, false);
-            canvas.addEventListener('touchend', handleTouchEnd, false);
-
-            // Add mouse event listeners
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-        }
-
-        function resizeCanvas() {
-            canvasWidth = window.innerWidth;
-            canvasHeight = window.innerHeight - 150; // Account for HUD and molecule tray
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-        }
-
-        function startGame() {
-            document.getElementById('start-modal').style.display = 'none';
-            loadLevel(currentLevel);
-        }
-
-        function loadLevel(level) {
-            // Clear existing molecules
-            molecules = [];
-            const moleculeTray = document.getElementById('molecule-tray');
-            moleculeTray.innerHTML = '';
-
-            // Set up level
-            const levelData = LEVELS[level - 1];
-            document.getElementById('level').textContent = `Level ${level}: ${levelData.target.name} Formation`;
-
-            // Create required molecules in tray
-            levelData.required.forEach(molecule => {
-                const div = document.createElement('div');
-                div.className = 'molecule';
-                div.style.backgroundColor = molecule.color;
-                div.textContent = molecule.name.split(' ')[0];
-                div.dataset.molecule = JSON.stringify(molecule);
+        class KrebsCycleGame {
+            constructor() {
+                this.score = 0;
+                this.currentStep = 0;
+                this.isDragging = false;
+                this.currentMolecule = null;
+                this.molecules = [];
+                this.targetZones = [];
                 
-                div.addEventListener('mousedown', startDrag);
-                div.addEventListener('touchstart', startDrag);
+                // Krebs cycle steps
+                this.steps = [
+                    { name: "Citrate", color: "#2196F3" },
+                    { name: "Isocitrate", color: "#4CAF50" },
+                    { name: "α-Ketoglutarate", color: "#9C27B0" },
+                    { name: "Succinyl-CoA", color: "#FF9800" },
+                    { name: "Succinate", color: "#E91E63" },
+                    { name: "Fumarate", color: "#00BCD4" },
+                    { name: "Malate", color: "#FFEB3B" },
+                    { name: "Oxaloacetate", color: "#FF5722" }
+                ];
+
+                this.init();
+            }
+
+            init() {
+                this.gameArea = document.getElementById('game-area');
+                this.scoreElement = document.getElementById('score');
+                this.messageElement = document.getElementById('message');
                 
-                moleculeTray.appendChild(div);
-            });
+                document.getElementById('reset-btn').addEventListener('click', () => this.reset());
+                document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
 
-            // Set target molecule
-            targetMolecule = {
-                x: canvasWidth / 2,
-                y: canvasHeight / 2,
-                radius: 40,
-                ...levelData.target
-            };
-
-            // Start game loop
-            requestAnimationFrame(gameLoop);
-        }
-
-        function startDrag(e) {
-            e.preventDefault();
-            const molecule = JSON.parse(e.target.dataset.molecule);
-            draggedMolecule = {
-                x: e.type === 'mousedown' ? e.clientX : e.touches[0].clientX,
-                y: e.type === 'mousedown' ? e.clientY : e.touches[0].clientY,
-                radius: 30,
-                ...molecule
-            };
-            molecules.push(draggedMolecule);
-        }
-
-        function handleMouseMove(e) {
-            if (draggedMolecule) {
-                draggedMolecule.x = e.clientX;
-                draggedMolecule.y = e.clientY;
-            }
-        }
-
-        function handleTouchMove(e) {
-            if (draggedMolecule) {
-                e.preventDefault();
-                draggedMolecule.x = e.touches[0].clientX;
-                draggedMolecule.y = e.touches[0].clientY;
-            }
-        }
-
-        function handleMouseUp() {
-            checkCollision();
-            draggedMolecule = null;
-        }
-
-        function handleTouchEnd() {
-            checkCollision();
-            draggedMolecule = null;
-        }
-
-        function handleTouchStart(e) {
-            const touch = e.touches[0];
-            const element = document.elementFromPoint(touch.clientX, touch.clientY);
-            if (element && element.classList.contains('molecule')) {
-                startDrag(e);
-            }
-        }
-
-        function checkCollision() {
-            if (!draggedMolecule || !targetMolecule) return;
-
-            const dx = draggedMolecule.x - targetMolecule.x;
-            const dy = draggedMolecule.y - targetMolecule.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < targetMolecule.radius + draggedMolecule.radius) {
-                // Check if correct molecule combination
-                const levelData = LEVELS[currentLevel - 1];
-                if (levelData.required.some(m => m.name === draggedMolecule.name)) {
-                    score += 100;
-                    document.getElementById('score').textContent = `Score: ${score}`;
-                    showLevelComplete();
-                }
-            }
-        }
-
-        function showLevelComplete() {
-            const modal = document.getElementById('level-complete-modal');
-            const text = document.getElementById('level-complete-text');
-            text.textContent = `You completed level ${currentLevel} and earned 100 points!`;
-            modal.style.display = 'flex';
-        }
-
-        function nextLevel() {
-            document.getElementById('level-complete-modal').style.display = 'none';
-            currentLevel++;
-            if (currentLevel <= LEVELS.length) {
-                loadLevel(currentLevel);
-            } else {
-                // Game complete
-                alert('Congratulations! You\'ve completed the Krebs Cycle!');
-                currentLevel = 1;
-                score = 0;
-                loadLevel(currentLevel);
-            }
-        }
-
-        function showInfoModal() {
-            document.getElementById('info-modal').style.display = 'flex';
-        }
-
-        function closeInfoModal() {
-            document.getElementById('info-modal').style.display = 'none';
-        }
-
-        function gameLoop() {
-            // Clear canvas
-            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-            // Draw target molecule
-            if (targetMolecule) {
-                ctx.beginPath();
-                ctx.arc(targetMolecule.x, targetMolecule.y, targetMolecule.radius, 0, Math.PI * 2);
-                ctx.fillStyle = targetMolecule.color;
-                ctx.fill();
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.fillText(targetMolecule.name.split(' ')[0], targetMolecule.x, targetMolecule.y);
+                this.createTargetZones();
+                this.createMolecules();
+                this.setupDragAndDrop();
             }
 
-            // Draw dragged molecule
-            if (draggedMolecule) {
-                ctx.beginPath();
-                ctx.arc(draggedMolecule.x, draggedMolecule.y, draggedMolecule.radius, 0, Math.PI * 2);
-                ctx.fillStyle = draggedMolecule.color;
-                ctx.fill();
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.fillText(draggedMolecule.name.split(' ')[0], draggedMolecule.x, draggedMolecule.y);
-            }
+            createTargetZones() {
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.35;
 
-            // Draw molecule paths
-            drawCyclePaths();
+                this.steps.forEach((step, index) => {
+                    const angle = (index * 2 * Math.PI) / this.steps.length;
+                    const x = centerX + radius * Math.cos(angle) - 35;
+                    const y = centerY + radius * Math.sin(angle) - 35;
 
-            requestAnimationFrame(gameLoop);
-        }
+                    const zone = document.createElement('div');
+                    zone.className = 'target-zone';
+                    zone.style.left = `${x}px`;
+                    zone.style.top = `${y}px`;
+                    zone.dataset.index = index;
 
-        function drawCyclePaths() {
-            ctx.beginPath();
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            
-            // Draw circular path connecting all positions
-            const centerX = canvasWidth / 2;
-            const centerY = canvasHeight / 2;
-            const radius = Math.min(canvasWidth, canvasHeight) / 3;
-            
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Draw arrow markers along the path
-            const numArrows = 8;
-            for (let i = 0; i < numArrows; i++) {
-                const angle = (i * 2 * Math.PI / numArrows) - Math.PI / 2;
-                const x = centerX + radius * Math.cos(angle);
-                const y = centerY + radius * Math.sin(angle);
-                
-                drawArrow(x, y, angle);
-            }
-        }
-
-        function drawArrow(x, y, angle) {
-            const arrowSize = 10;
-            const arrowAngle = Math.PI / 6;
-
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle + Math.PI);
-            
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-arrowSize * Math.cos(arrowAngle), arrowSize * Math.sin(arrowAngle));
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-arrowSize * Math.cos(arrowAngle), -arrowSize * Math.sin(arrowAngle));
-            
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            ctx.restore();
-        }
-
-        // Add particle effects for successful combinations
-        function createParticles(x, y) {
-            const numParticles = 20;
-            const particles = [];
-
-            for (let i = 0; i < numParticles; i++) {
-                particles.push({
-                    x: x,
-                    y: y,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10,
-                    life: 1
+                    this.gameArea.appendChild(zone);
+                    this.targetZones.push(zone);
                 });
             }
 
-            function updateParticles() {
-                ctx.save();
-                
-                particles.forEach((particle, index) => {
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.life -= 0.02;
+            createMolecules() {
+                const shuffledSteps = [...this.steps]
+                    .sort(() => Math.random() - 0.5);
 
-                    if (particle.life > 0) {
-                        ctx.beginPath();
-                        ctx.arc(particle.x, particle.y, 3 * particle.life, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(${targetMolecule.color}, ${particle.life})`;
-                        ctx.fill();
-                    } else {
-                        particles.splice(index, 1);
+                shuffledSteps.forEach((step, index) => {
+                    const molecule = document.createElement('div');
+                    molecule.className = 'molecule';
+                    molecule.textContent = step.name;
+                    molecule.style.backgroundColor = step.color;
+                    molecule.dataset.name = step.name;
+                    
+                    // Position molecules along the bottom
+                    const x = (this.gameArea.clientWidth / (shuffledSteps.length + 1)) * (index + 1) - 30;
+                    const y = this.gameArea.clientHeight - 80;
+                    
+                    molecule.style.left = `${x}px`;
+                    molecule.style.top = `${y}px`;
+
+                    this.gameArea.appendChild(molecule);
+                    this.molecules.push(molecule);
+                });
+            }
+
+            setupDragAndDrop() {
+                this.molecules.forEach(molecule => {
+                    molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
+                    molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
+                });
+
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('touchmove', (e) => this.drag(e));
+                document.addEventListener('mouseup', () => this.endDrag());
+                document.addEventListener('touchend', () => this.endDrag());
+            }
+
+            startDrag(e, molecule) {
+                if (e.type === 'touchstart') {
+                    e.preventDefault();
+                    e = e.touches[0];
+                }
+                this.isDragging = true;
+                this.currentMolecule = molecule;
+                this.currentMolecule.classList.add('dragging');
+
+                const rect = molecule.getBoundingClientRect();
+                this.offsetX = e.clientX - rect.left;
+                this.offsetY = e.clientY - rect.top;
+            }
+
+            drag(e) {
+                if (!this.isDragging) return;
+                
+                if (e.type === 'touchmove') {
+                    e.preventDefault();
+                    e = e.touches[0];
+                }
+
+                const gameRect = this.gameArea.getBoundingClientRect();
+                let x = e.clientX - gameRect.left - this.offsetX;
+                let y = e.clientY - gameRect.top - this.offsetY;
+
+                // Constrain to game area
+                x = Math.max(0, Math.min(x, gameRect.width - 60));
+                y = Math.max(0, Math.min(y, gameRect.height - 60));
+
+                this.currentMolecule.style.left = `${x}px`;
+                this.currentMolecule.style.top = `${y}px`;
+            }
+
+            endDrag() {
+                if (!this.isDragging) return;
+                this.isDragging = false;
+                
+                if (this.currentMolecule) {
+                    this.currentMolecule.classList.remove('dragging');
+                    this.checkPlacement();
+                    this.currentMolecule = null;
+                }
+            }
+
+            checkPlacement() {
+                const moleculeRect = this.currentMolecule.getBoundingClientRect();
+                const moleculeCenter = {
+                    x: moleculeRect.left + moleculeRect.width / 2,
+                    y: moleculeRect.top + moleculeRect.height / 2
+                };
+
+                let closestZone = null;
+                let minDistance = Infinity;
+
+                this.targetZones.forEach(zone => {
+                    const zoneRect = zone.getBoundingClientRect();
+                    const zoneCenter = {
+                        x: zoneRect.left + zoneRect.width / 2,
+                        y: zoneRect.top + zoneRect.height / 2
+                    };
+
+                    const distance = Math.hypot(
+                        moleculeCenter.x - zoneCenter.x,
+                        moleculeCenter.y - zoneCenter.y
+                    );
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestZone = zone;
                     }
                 });
 
-                ctx.restore();
+                if (minDistance < 50) { // Snap threshold
+                    const zoneIndex = parseInt(closestZone.dataset.index);
+                    const isCorrect = this.steps[zoneIndex].name === this.currentMolecule.dataset.name;
 
-                if (particles.length > 0) {
-                    requestAnimationFrame(updateParticles);
+                    if (isCorrect) {
+                        this.score += 10;
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Correct! +10 points', 'correct');
+                        
+                        // Snap to position
+                        const zoneRect = closestZone.getBoundingClientRect();
+                        const gameRect = this.gameArea.getBoundingClientRect();
+                        this.currentMolecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
+                        this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
+                        
+                        // Disable dragging for correct placement
+                        this.currentMolecule.style.pointerEvents = 'none';
+                        
+                        // Check if game is complete
+                        if (this.score === this.steps.length * 10) {
+                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 5);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Try again! -5 points', 'incorrect');
+                    }
                 }
             }
 
-            updateParticles();
-        }
+            showMessage(text, type) {
+                this.messageElement.textContent = text;
+                this.messageElement.className = type;
+                this.messageElement.style.display = 'block';
+                
+                setTimeout(() => {
+                    this.messageElement.textContent = '';
+                }, 2000);
+            }
 
-        // Add sound effects
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playSuccessSound() {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-            oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.1);
-
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-            oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.3);
-        }
-
-        // Save progress to localStorage
-        function saveProgress() {
-            const gameState = {
-                score,
-                currentLevel,
-                timestamp: Date.now()
-            };
-            localStorage.setItem('krebsCycleProgress', JSON.stringify(gameState));
-        }
-
-        function loadProgress() {
-            const savedState = localStorage.getItem('krebsCycleProgress');
-            if (savedState) {
-                const gameState = JSON.parse(savedState);
-                // Only load if save is less than 24 hours old
-                if (Date.now() - gameState.timestamp < 24 * 60 * 60 * 1000) {
-                    score = gameState.score;
-                    currentLevel = gameState.currentLevel;
-                    document.getElementById('score').textContent = `Score: ${score}`;
+            showHint() {
+                // Find first incomplete step
+                const completedMolecules = new Set(
+                    Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
+                        .map(m => m.dataset.name)
+                );
+                
+                let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
+                
+                if (nextStep) {
+                    this.showMessage(`Next molecule: ${nextStep.name}`, 'hint');
                 }
             }
-        }
 
-        // Add achievement system
-        const ACHIEVEMENTS = {
-            FIRST_LEVEL: { name: 'First Step', description: 'Complete your first level' },
-            HALFWAY: { name: 'Halfway There', description: 'Reach level 4' },
-            CYCLE_MASTER: { name: 'Cycle Master', description: 'Complete all levels' },
-            SPEED_RUNNER: { name: 'Speed Runner', description: 'Complete a level in under 10 seconds' }
-        };
-
-        let unlockedAchievements = new Set();
-
-        function checkAchievements() {
-            if (currentLevel === 2 && !unlockedAchievements.has('FIRST_LEVEL')) {
-                unlockAchievement(ACHIEVEMENTS.FIRST_LEVEL);
-            }
-            if (currentLevel === 4 && !unlockedAchievements.has('HALFWAY')) {
-                unlockAchievement(ACHIEVEMENTS.HALFWAY);
-            }
-            if (currentLevel > LEVELS.length && !unlockedAchievements.has('CYCLE_MASTER')) {
-                unlockAchievement(ACHIEVEMENTS.CYCLE_MASTER);
+            reset() {
+                // Clear game area
+                this.molecules.forEach(molecule => molecule.remove());
+                this.targetZones.forEach(zone => zone.remove());
+                
+                // Reset variables
+                this.score = 0;
+                this.scoreElement.textContent = '0';
+                this.molecules = [];
+                this.targetZones = [];
+                
+                // Reinitialize game
+                this.createTargetZones();
+                this.createMolecules();
             }
         }
 
-        function unlockAchievement(achievement) {
-            unlockedAchievements.add(achievement.name);
-            showAchievementNotification(achievement);
-            saveAchievements();
-        }
-
-        function showAchievementNotification(achievement) {
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: var(--primary);
-                color: white;
-                padding: 1rem;
-                border-radius: 0.5rem;
-                animation: slideIn 0.5s ease-out;
-                z-index: 1000;
-            `;
-            notification.innerHTML = `
-                <h3>Achievement Unlocked!</h3>
-                <p>${achievement.name}</p>
-                <p>${achievement.description}</p>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.5s ease-in';
-                setTimeout(() => notification.remove(), 500);
-            }, 3000);
-        }
-
-        function saveAchievements() {
-            localStorage.setItem('krebsCycleAchievements', JSON.stringify(Array.from(unlockedAchievements)));
-        }
-
-        function loadAchievements() {
-            const saved = localStorage.getItem('krebsCycleAchievements');
-            if (saved) {
-                unlockedAchievements = new Set(JSON.parse(saved));
-            }
-        }
-
-        // Add touch event handling
-        let touchStartX = 0;
-        let touchStartY = 0;
-
-        function handleTouchStart(e) {
-            const touch = e.touches[0];
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-        }
-
-        function handleTouchMove(e) {
-            if (!draggedMolecule) return;
-            
-            e.preventDefault();
-            const touch = e.touches[0];
-            draggedMolecule.x = touch.clientX;
-            draggedMolecule.y = touch.clientY;
-        }
-
-        // Add keyboard controls for accessibility
-        document.addEventListener('keydown', (e) => {
-            if (draggedMolecule) {
-                const speed = 10;
-                switch(e.key) {
-                    case 'ArrowUp':
-                        draggedMolecule.y -= speed;
-                        break;
-                    case 'ArrowDown':
-                        draggedMolecule.y += speed;
-                        break;
-                    case 'ArrowLeft':
-                        draggedMolecule.x -= speed;
-                        break;
-                    case 'ArrowRight':
-                        draggedMolecule.x += speed;
-                        break;
-                    case 'Enter':
-                    case ' ':
-                        checkCollision();
-                        draggedMolecule = null;
-                        break;
-                }
-            }
+        // Start the game when the page loads
+        window.addEventListener('load', () => {
+            new KrebsCycleGame();
         });
-
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(100%); }
-                to { transform: translateX(0); }
-            }
-
-            @keyframes slideOut {
-                from { transform: translateX(0); }
-                to { transform: translateX(100%); }
-            }
-
-            .molecule {
-                transition: transform 0.2s ease;
-            }
-
-            .molecule:hover {
-                transform: scale(1.1);
-            }
-
-            .modal {
-                animation: fadeIn 0.3s ease-out;
-            }
-
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Initialize the game
-        window.onload = () => {
-            loadProgress();
-            loadAchievements();
-            init();
-        };
     </script>
 </body>
 </html>
