@@ -113,14 +113,15 @@
             cursor: pointer;
             user-select: none;
             transition: transform 0.2s;
-            font-size: 7px;
+            font-size: 6px;
             text-align: center;
             padding: 4px;
             word-wrap: break-word;
         }
 
         .molecule.completed {
-            background-color: #808080;
+            background-color: #404040 !important; /* Added !important to override inline styles */
+            transition: background-color 0.5s ease;
         }
 
         .molecule.dragging, .enzyme.dragging {
@@ -254,16 +255,16 @@
                 ];
 
                 this.enzymeSteps = [
-                    { name: "Aconitase", target: "Citrate-cis-Aconitate" },
-                    { name: "Aconitase", target: "cis-Aconitate-Isocitrate" },
-                    { name: "Isocitrate dehydrogenase", target: "Isocitrate-Oxalosuccinate" },
-                    { name: "Isocitrate dehydrogenase", target: "Oxalosuccinate-α-Ketoglutarate" },
-                    { name: "α-Ketoglutarate-dehydrogenase", target: "α-Ketoglutarate-Succinyl-CoA" },
-                    { name: "Succinyl-CoA synthetase", target: "Succinyl-CoA-Succinate" },
-                    { name: "Succinate dehydrogenase", target: "Succinate-Fumarate" },
-                    { name: "Fumarase", target: "Fumarate-Malate" },
-                    { name: "Malate dehydrogenase", target: "Malate-Oxaloacetate" },
-                    { name: "Citrate synthase", target: "Oxaloacetate-Citrate" }
+                    { name: "Aconitase", target: "Citrate-cis-Aconitate", color: "#FF9800" },
+                    { name: "Aconitase", target: "cis-Aconitate-Isocitrate", color: "#FF9800" },
+                    { name: "Isocitrate dehydrogenase", target: "Isocitrate-Oxalosuccinate", color: "#E91E63" },
+                    { name: "Isocitrate dehydrogenase", target: "Oxalosuccinate-α-Ketoglutarate", color: "#E91E63" },
+                    { name: "α-Ketoglutarate-dehydrogenase", target: "α-Ketoglutarate-Succinyl-CoA", color: "#9C27B0" },
+                    { name: "Succinyl-CoA synthetase", target: "Succinyl-CoA-Succinate", color: "#2196F3" },
+                    { name: "Succinate dehydrogenase", target: "Succinate-Fumarate", color: "#4CAF50" },
+                    { name: "Fumarase", target: "Fumarate-Malate", color: "#795548" },
+                    { name: "Malate dehydrogenase", target: "Malate-Oxaloacetate", color: "#607D8B" },
+                    { name: "Citrate synthase", target: "Oxaloacetate-Citrate", color: "#9575CD" }
                 ];
 
                 this.init();
@@ -339,6 +340,7 @@
                     enzyme.textContent = step.name;
                     enzyme.dataset.name = step.name;
                     enzyme.dataset.target = step.target;
+                    enzyme.style.backgroundColor = step.color;  // Add this line
                     
                     const x = (this.gameArea.clientWidth / (shuffledEnzymes.length + 1)) * (index + 1) - 25;
                     const y = this.gameArea.clientHeight - 80;
@@ -640,9 +642,11 @@
                 this.currentStep = 2;
                 this.showMessage('Step 2: Place the Enzymes', '');
                 
-                // Change molecule colors to gray
-                this.molecules.forEach(molecule => {
+                // Update all molecules to gray
+                const allMolecules = document.querySelectorAll('.molecule');
+                allMolecules.forEach(molecule => {
                     molecule.classList.add('completed');
+                    molecule.style.backgroundColor = '#404040'; // Add direct style as well
                 });
 
                 // Create enzyme targets and enzymes
