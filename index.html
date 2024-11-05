@@ -90,7 +90,7 @@
             cursor: pointer;
             user-select: none;
             transition: transform 0.2s;
-            font-size: 10px;
+            font-size: 8px;
             text-align: center;
             padding: 5px;
             word-wrap: break-word;
@@ -110,6 +110,12 @@
             display: flex;
             justify-content: center;
             align-items: center;
+        }
+
+        .cycle-arrow {
+            position: absolute;
+            z-index: 0;
+            pointer-events: none;
         }
 
         .correct {
@@ -219,9 +225,11 @@
                 document.getElementById('hint-btn').addEventListener('click', () => this.showHint());
 
                 this.createTargetZones();
+                this.createCycleArrow();
                 this.createMolecules();
                 this.setupDragAndDrop();
-                this.placeCitrate(); // Place Citrate at the start
+                this.placeCitrate();
+                this.showInitialMessage();
             }
 
             createTargetZones() {
@@ -245,6 +253,61 @@
                     this.gameArea.appendChild(zone);
                     this.targetZones.push(zone);
                 });
+            }
+
+            createCycleArrow() {
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                // Make the arrow radius much smaller than the target zones radius
+                const targetRadius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
+                const arrowRadius = targetRadius * 0.4; // Reduce to 40% of the target radius
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
+
+                const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                arrow.setAttribute("class", "cycle-arrow");
+                arrow.setAttribute("width", this.gameArea.clientWidth);
+                arrow.setAttribute("height", this.gameArea.clientHeight);
+                
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                // Start slightly offset from the top to avoid overlapping with target zones
+                const startAngle = -85; // Slightly offset from -90 to avoid direct overlap
+                
+                // Calculate start and end points
+                const startX = centerX + arrowRadius * Math.cos(startAngle * Math.PI / 180);
+                const startY = centerY + arrowRadius * Math.sin(startAngle * Math.PI / 180) - verticalOffset;
+                
+                // Create the arc path with a small gap at the end
+                const arcPath = `
+                    M ${startX} ${startY}
+                    A ${arrowRadius} ${arrowRadius} 0 1 1 ${startX - 1} ${startY}
+                `;
+                
+                path.setAttribute("d", arcPath);
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke", "#666666");
+                path.setAttribute("stroke-width", "1.5");
+                
+                // Create a smaller arrowhead
+                const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+                marker.setAttribute("id", "arrowhead");
+                marker.setAttribute("markerWidth", "8");
+                marker.setAttribute("markerHeight", "6");
+                marker.setAttribute("refX", "8");
+                marker.setAttribute("refY", "3");
+                marker.setAttribute("orient", "auto");
+                
+                const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                polygon.setAttribute("points", "0 0, 8 3, 0 6");
+                polygon.setAttribute("fill", "#666666");
+                
+                marker.appendChild(polygon);
+                arrow.appendChild(marker);
+                
+                path.setAttribute("marker-end", "url(#arrowhead)");
+                
+                arrow.appendChild(path);
+                this.gameArea.insertBefore(arrow, this.gameArea.firstChild);
             }
 
             createMolecules() {
@@ -418,9 +481,18 @@
                 this.messageElement.className = type;
                 this.messageElement.style.display = 'block';
                 
-                setTimeout(() => {
-                    this.messageElement.textContent = '';
-                }, 2000);
+                if (text !== "Step 1: Place the Substrates") {
+                    setTimeout(() => {
+                        this.messageElement.textContent = '';
+                        this.messageElement.className = '';
+                    }, 2000);
+                }
+            }
+
+            showInitialMessage() {
+                this.messageElement.textContent = "Step 1: Place the Substrates";
+                this.messageElement.className = '';
+                this.messageElement.style.display = 'block';
             }
 
             showHint() {
@@ -432,13 +504,23 @@
                 let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
                 
                 if (nextStep) {
-                    this.showMessage(`Next molecule: ${nextStep.name}`, 'hint');
+                    // Apply 2-point penalty
+                    this.score = Math.max(0, this.score - 2); // Ensures score doesn't go below 0
+                    this.scoreElement.textContent = this.score;
+                    
+                    // Update message to show both hint and penalty
+                    this.showMessage(`Next molecule: ${nextStep.name} (-2 points)`, 'hint');
                 }
             }
 
             reset() {
                 this.molecules.forEach(molecule => molecule.remove());
                 this.targetZones.forEach(zone => zone.remove());
+
+                const existingArrow = this.gameArea.querySelector('.cycle-arrow');
+                if (existingArrow) {
+                    existingArrow.remove();
+                }
                 
                 this.score = 0;
                 this.scoreElement.textContent = '0';
@@ -448,9 +530,11 @@
                 this.currentMolecule = null;
                 
                 this.createTargetZones();
+                this.createCycleArrow();
                 this.createMolecules();
                 this.setupDragAndDrop();
-                this.placeCitrate(); // Re-place Citrate after reset
+                this.placeCitrate();
+                this.showInitialMessage();
             }
         }
 
