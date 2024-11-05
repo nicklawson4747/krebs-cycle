@@ -79,11 +79,8 @@
             background-color: #f8f8f8;
         }
 
-        .molecule {
+        .molecule, .enzyme, .reaction-type {
             position: absolute;
-            width: 60px;
-            height: 60px;
-            background-color: #2196F3;
             border-radius: 50%;
             display: flex;
             justify-content: center;
@@ -93,38 +90,37 @@
             cursor: pointer;
             user-select: none;
             transition: transform 0.2s, background-color 0.5s;
-            font-size: 8px;
             text-align: center;
             padding: 5px;
             word-wrap: break-word;
         }
 
+        .molecule {
+            width: 60px;
+            height: 60px;
+            background-color: #2196F3;
+            font-size: 8px;
+        }
+
         .enzyme {
-            position: absolute;
             width: 50px;
             height: 50px;
             background-color: #FF9800;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            user-select: none;
-            transition: transform 0.2s;
             font-size: 6px;
-            text-align: center;
-            padding: 4px;
-            word-wrap: break-word;
         }
 
-        .molecule.completed {
-            background-color: #404040 !important; /* Added !important to override inline styles */
+        .reaction-type {
+            width: 50px;
+            height: 50px;
+            font-size: 7px;
+        }
+
+        .molecule.completed, .enzyme.completed {
+            background-color: #404040 !important;
             transition: background-color 0.5s ease;
         }
 
-        .molecule.dragging, .enzyme.dragging {
+        .molecule.dragging, .enzyme.dragging, .reaction-type.dragging {
             transform: scale(1.1);
             z-index: 1000;
         }
@@ -149,6 +145,11 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: border-color 0.5s ease;
+        }
+
+        .enzyme-target.step3 {
+            border-color: #4CAF50;
         }
 
         .cycle-arrow {
@@ -238,6 +239,7 @@
                 this.currentMolecule = null;
                 this.molecules = [];
                 this.enzymes = [];
+                this.reactionTypes = [];
                 this.targetZones = [];
                 this.enzymeTargets = [];
                 
@@ -266,6 +268,30 @@
                     { name: "Malate dehydrogenase", target: "Malate-Oxaloacetate", color: "#607D8B" },
                     { name: "Citrate synthase", target: "Oxaloacetate-Citrate", color: "#9575CD" }
                 ];
+
+                this.reactionMapping = {
+                    "Citrate-cis-Aconitate": "Dehydration",
+                    "cis-Aconitate-Isocitrate": "Hydration",
+                    "Isocitrate-Oxalosuccinate": "Oxidation",
+                    "Oxalosuccinate-α-Ketoglutarate": "Decarboxylation",
+                    "α-Ketoglutarate-Succinyl-CoA": "Oxidative decarboxylation",
+                    "Succinyl-CoA-Succinate": "Substrate-level phosphorylation",
+                    "Succinate-Fumarate": "Oxidation",
+                    "Fumarate-Malate": "Hydration",
+                    "Malate-Oxaloacetate": "Oxidation",
+                    "Oxaloacetate-Citrate": "Aldol condensation"
+                };
+
+                // Define colors for each unique reaction type
+                this.reactionColors = {
+                    "Dehydration": "#8B4513",
+                    "Hydration": "#20B2AA",
+                    "Oxidation": "#9932CC",
+                    "Decarboxylation": "#CD853F",
+                    "Oxidative decarboxylation": "#FF4500",
+                    "Substrate-level phosphorylation": "#4682B4",
+                    "Aldol condensation": "#556B2F"
+                };
 
                 this.init();
             }
@@ -305,51 +331,6 @@
 
                     this.gameArea.appendChild(zone);
                     this.targetZones.push(zone);
-                });
-            }
-
-            createEnzymeTargets() {
-                const centerX = this.gameArea.clientWidth / 2;
-                const centerY = this.gameArea.clientHeight / 2;
-                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.2;
-                const verticalOffset = this.gameArea.clientHeight * 0.1;
-
-                this.enzymeSteps.forEach((step, index) => {
-                    const angle = ((index * 360 / this.enzymeSteps.length + 360 / (this.enzymeSteps.length * 2)) - 90) * (Math.PI / 180);
-                    const x = centerX + radius * Math.cos(angle) - 30;
-                    const y = centerY + radius * Math.sin(angle) - 30 - verticalOffset;
-
-                    const target = document.createElement('div');
-                    target.className = 'enzyme-target';
-                    target.style.left = `${x}px`;
-                    target.style.top = `${y}px`;
-                    target.dataset.target = step.target;
-
-                    this.gameArea.appendChild(target);
-                    this.enzymeTargets.push(target);
-                });
-            }
-
-            createEnzymes() {
-                const shuffledEnzymes = [...this.enzymeSteps]
-                    .sort(() => Math.random() - 0.5);
-
-                shuffledEnzymes.forEach((step, index) => {
-                    const enzyme = document.createElement('div');
-                    enzyme.className = 'enzyme';
-                    enzyme.textContent = step.name;
-                    enzyme.dataset.name = step.name;
-                    enzyme.dataset.target = step.target;
-                    enzyme.style.backgroundColor = step.color;  // Add this line
-                    
-                    const x = (this.gameArea.clientWidth / (shuffledEnzymes.length + 1)) * (index + 1) - 25;
-                    const y = this.gameArea.clientHeight - 80;
-                    
-                    enzyme.style.left = `${x}px`;
-                    enzyme.style.top = `${y}px`;
-
-                    this.gameArea.appendChild(enzyme);
-                    this.enzymes.push(enzyme);
                 });
             }
 
@@ -420,6 +401,20 @@
                 });
             }
 
+            setupDragAndDrop() {
+                this.molecules.forEach(molecule => {
+                    if (molecule.dataset.name !== "Citrate") {
+                        molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
+                        molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
+                    }
+                });
+
+                document.addEventListener('mousemove', (e) => this.drag(e));
+                document.addEventListener('touchmove', (e) => this.drag(e));
+                document.addEventListener('mouseup', () => this.endDrag());
+                document.addEventListener('touchend', () => this.endDrag());
+            }
+
             placeCitrate() {
                 const citrate = {
                     name: "Citrate",
@@ -445,27 +440,6 @@
                 
                 this.score = 10;
                 this.scoreElement.textContent = this.score;
-            }
-
-            setupDragAndDrop() {
-                this.molecules.forEach(molecule => {
-                    if (molecule.dataset.name !== "Citrate") {
-                        molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
-                        molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
-                    }
-                });
-
-                document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('touchmove', (e) => this.drag(e));
-                document.addEventListener('mouseup', () => this.endDrag());
-                document.addEventListener('touchend', () => this.endDrag());
-            }
-
-            setupEnzymeDragAndDrop() {
-                this.enzymes.forEach(enzyme => {
-                    enzyme.addEventListener('mousedown', (e) => this.startDrag(e, enzyme));
-                    enzyme.addEventListener('touchstart', (e) => this.startDrag(e, enzyme));
-                });
             }
 
             startDrag(e, element) {
@@ -500,21 +474,6 @@
 
                 this.currentMolecule.style.left = `${x}px`;
                 this.currentMolecule.style.top = `${y}px`;
-            }
-
-            endDrag() {
-                if (!this.isDragging) return;
-                this.isDragging = false;
-                
-                if (this.currentMolecule) {
-                    this.currentMolecule.classList.remove('dragging');
-                    if (this.currentStep === 1 && this.currentMolecule.classList.contains('molecule')) {
-                        this.checkMoleculePlacement();
-                    } else if (this.currentStep === 2 && this.currentMolecule.classList.contains('enzyme')) {
-                        this.checkEnzymePlacement();
-                    }
-                    this.currentMolecule = null;
-                }
             }
 
             checkMoleculePlacement() {
@@ -573,6 +532,266 @@
                 }
             }
 
+            createEnzymeTargets() {
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.2;
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
+
+                this.enzymeSteps.forEach((step, index) => {
+                    const angle = ((index * 360 / this.enzymeSteps.length + 360 / (this.enzymeSteps.length * 2)) - 90) * (Math.PI / 180);
+                    const x = centerX + radius * Math.cos(angle) - 30;
+                    const y = centerY + radius * Math.sin(angle) - 30 - verticalOffset;
+
+                    const target = document.createElement('div');
+                    target.className = 'enzyme-target';
+                    target.style.left = `${x}px`;
+                    target.style.top = `${y}px`;
+                    target.dataset.target = step.target;
+
+                    this.gameArea.appendChild(target);
+                    this.enzymeTargets.push(target);
+                });
+            }
+
+            createEnzymes() {
+                const shuffledEnzymes = [...this.enzymeSteps]
+                    .sort(() => Math.random() - 0.5);
+
+                shuffledEnzymes.forEach((step, index) => {
+                    const enzyme = document.createElement('div');
+                    enzyme.className = 'enzyme';
+                    enzyme.textContent = step.name;
+                    enzyme.dataset.name = step.name;
+                    enzyme.dataset.target = step.target;
+                    enzyme.style.backgroundColor = step.color;
+                    
+                    const x = (this.gameArea.clientWidth / (shuffledEnzymes.length + 1)) * (index + 1) - 25;
+                    const y = this.gameArea.clientHeight - 80;
+                    
+                    enzyme.style.left = `${x}px`;
+                    enzyme.style.top = `${y}px`;
+
+                    this.gameArea.appendChild(enzyme);
+                    this.enzymes.push(enzyme);
+                });
+            }
+
+            setupEnzymeDragAndDrop() {
+                this.enzymes.forEach(enzyme => {
+                    enzyme.addEventListener('mousedown', (e) => this.startDrag(e, enzyme));
+                    enzyme.addEventListener('touchstart', (e) => this.startDrag(e, enzyme));
+                });
+            }
+
+            showMessage(text, type) {
+                this.messageElement.textContent = text;
+                this.messageElement.className = type;
+                this.messageElement.style.display = 'block';
+                
+                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes', 'Step 3: Determine Reaction Types'].includes(text)) {
+                    setTimeout(() => {
+                        this.messageElement.textContent = 
+                            this.currentStep === 1 ? 'Step 1: Place the Substrates' :
+                            this.currentStep === 2 ? 'Step 2: Place the Enzymes' :
+                            'Step 3: Determine Reaction Types';
+                        this.messageElement.className = '';
+                    }, 2000);
+                }
+            }
+
+            showInitialMessage() {
+                this.showMessage('Step 1: Place the Substrates', '');
+            }
+
+            startStep2() {
+                this.currentStep = 2;
+                this.showMessage('Step 2: Place the Enzymes', '');
+                
+                // Update all molecules to gray
+                const allMolecules = document.querySelectorAll('.molecule');
+                allMolecules.forEach(molecule => {
+                    molecule.classList.add('completed');
+                });
+
+                // Create enzyme targets and enzymes
+                this.createEnzymeTargets();
+                this.createEnzymes();
+                this.setupEnzymeDragAndDrop();
+            }
+
+            startStep3() {
+                this.currentStep = 3;
+                this.showMessage('Step 3: Determine Reaction Types', '');
+
+                // Update all enzymes to gray
+                const allEnzymes = document.querySelectorAll('.enzyme');
+                allEnzymes.forEach(enzyme => {
+                    enzyme.classList.add('completed');
+                });
+
+                // Update enzyme target borders to green
+                const allEnzymeTargets = document.querySelectorAll('.enzyme-target');
+                allEnzymeTargets.forEach(target => {
+                    target.classList.add('step3');
+                });
+
+                // Create reaction type bubbles
+                this.createReactionTypes();
+            }
+
+            createReactionTypes() {
+                // Get unique reaction types
+                const uniqueReactions = [...new Set(Object.values(this.reactionMapping))];
+                
+                // Create bubbles for each unique reaction type
+                uniqueReactions.forEach((reaction, index) => {
+                    const count = Object.values(this.reactionMapping)
+                        .filter(r => r === reaction).length;
+                    
+                    // Create multiple bubbles for reaction types that appear more than once
+                    for (let i = 0; i < count; i++) {
+                        const reactionBubble = document.createElement('div');
+                        reactionBubble.className = 'reaction-type';
+                        reactionBubble.textContent = reaction;
+                        reactionBubble.dataset.type = reaction;
+                        reactionBubble.style.backgroundColor = this.reactionColors[reaction];
+
+                        const x = (this.gameArea.clientWidth / (uniqueReactions.length + 1)) * (index + 1) - 25;
+                        const y = this.gameArea.clientHeight - 80;
+                        
+                        reactionBubble.style.left = `${x}px`;
+                        reactionBubble.style.top = `${y}px`;
+
+                        this.gameArea.appendChild(reactionBubble);
+                        this.reactionTypes.push(reactionBubble);
+
+                        // Add drag and drop functionality
+                        reactionBubble.addEventListener('mousedown', (e) => this.startDrag(e, reactionBubble));
+                        reactionBubble.addEventListener('touchstart', (e) => this.startDrag(e, reactionBubble));
+                    }
+                });
+            }
+
+            checkReactionTypePlacement() {
+                const reactionRect = this.currentMolecule.getBoundingClientRect();
+                const reactionCenter = {
+                    x: reactionRect.left + reactionRect.width / 2,
+                    y: reactionRect.top + reactionRect.height / 2
+                };
+
+                let closestTarget = null;
+                let minDistance = Infinity;
+
+                this.enzymeTargets.forEach(target => {
+                    const targetRect = target.getBoundingClientRect();
+                    const targetCenter = {
+                        x: targetRect.left + targetRect.width / 2,
+                        y: targetRect.top + targetRect.height / 2
+                    };
+
+                    const distance = Math.hypot(
+                        reactionCenter.x - targetCenter.x,
+                        reactionCenter.y - targetCenter.y
+                    );
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestTarget = target;
+                    }
+                });
+
+                if (minDistance < 50) {
+                    const reactionType = this.currentMolecule.dataset.type;
+                    const expectedReactionType = this.reactionMapping[closestTarget.dataset.target];
+                    const isCorrect = reactionType === expectedReactionType;
+
+                    if (isCorrect) {
+                        this.score += 10;
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Correct! +10 points', 'correct');
+                        
+                        const targetRect = closestTarget.getBoundingClientRect();
+                        const gameRect = this.gameArea.getBoundingClientRect();
+                        this.currentMolecule.style.left = `${targetRect.left - gameRect.left + 5}px`;
+                        this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
+                        this.currentMolecule.style.pointerEvents = 'none';
+                        
+                        // Check if all reaction types are placed
+                        const placedReactions = document.querySelectorAll('.reaction-type[style*="pointer-events: none"]');
+                        if (placedReactions.length === Object.keys(this.reactionMapping).length) {
+                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 5);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Try again! -5 points', 'incorrect');
+                    }
+                }
+            }
+
+            endDrag() {
+                if (!this.isDragging) return;
+                this.isDragging = false;
+                
+                if (this.currentMolecule) {
+                    this.currentMolecule.classList.remove('dragging');
+                    if (this.currentStep === 1 && this.currentMolecule.classList.contains('molecule')) {
+                        this.checkMoleculePlacement();
+                    } else if (this.currentStep === 2 && this.currentMolecule.classList.contains('enzyme')) {
+                        this.checkEnzymePlacement();
+                    } else if (this.currentStep === 3 && this.currentMolecule.classList.contains('reaction-type')) {
+                        this.checkReactionTypePlacement();
+                    }
+                    this.currentMolecule = null;
+                }
+            }
+
+            showHint() {
+                if (this.currentStep === 1) {
+                    const completedMolecules = new Set(
+                        Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
+                            .map(m => m.dataset.name)
+                    );
+                    
+                    let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
+                    
+                    if (nextStep) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next molecule: ${nextStep.name} (-2 points)`, 'hint');
+                    }
+                } else if (this.currentStep === 2) {
+                    const completedEnzymes = new Set(
+                        Array.from(document.querySelectorAll('.enzyme[style*="pointer-events: none"]'))
+                            .map(e => e.dataset.target)
+                    );
+                    
+                    let nextStep = this.enzymeSteps.find(step => !completedEnzymes.has(step.target));
+                    
+                    if (nextStep) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next enzyme: ${nextStep.name} (-2 points)`, 'hint');
+                    }
+                } else if (this.currentStep === 3) {
+                    const completedReactions = new Set(
+                        Array.from(document.querySelectorAll('.reaction-type[style*="pointer-events: none"]'))
+                            .map(r => r.parentElement?.dataset?.target)
+                            .filter(Boolean)
+                    );
+                    
+                    let nextTarget = Object.entries(this.reactionMapping)
+                        .find(([target, _]) => !completedReactions.has(target));
+                    
+                    if (nextTarget) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next reaction type for ${nextTarget[0]}: ${nextTarget[1]} (-2 points)`, 'hint');
+                    }
+                }
+            }
+
             checkEnzymePlacement() {
                 const enzymeRect = this.currentMolecule.getBoundingClientRect();
                 const enzymeCenter = {
@@ -627,8 +846,10 @@
                         this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
                         this.currentMolecule.style.pointerEvents = 'none';
                         
-                        if (this.score === (this.steps.length + this.enzymeSteps.length) * 10) {
-                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                        // Check if all enzymes are placed
+                        const placedEnzymes = document.querySelectorAll('.enzyme[style*="pointer-events: none"]');
+                        if (placedEnzymes.length === this.enzymeSteps.length) {
+                            this.startStep3();
                         }
                     } else {
                         this.score = Math.max(0, this.score - 5);
@@ -638,75 +859,10 @@
                 }
             }
 
-            startStep2() {
-                this.currentStep = 2;
-                this.showMessage('Step 2: Place the Enzymes', '');
-                
-                // Update all molecules to gray
-                const allMolecules = document.querySelectorAll('.molecule');
-                allMolecules.forEach(molecule => {
-                    molecule.classList.add('completed');
-                    molecule.style.backgroundColor = '#404040'; // Add direct style as well
-                });
-
-                // Create enzyme targets and enzymes
-                this.createEnzymeTargets();
-                this.createEnzymes();
-                this.setupEnzymeDragAndDrop();
-            }
-
-            showMessage(text, type) {
-                this.messageElement.textContent = text;
-                this.messageElement.className = type;
-                this.messageElement.style.display = 'block';
-                
-                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes'].includes(text)) {
-                    setTimeout(() => {
-                        this.messageElement.textContent = this.currentStep === 1 ? 
-                            'Step 1: Place the Substrates' : 
-                            'Step 2: Place the Enzymes';
-                        this.messageElement.className = '';
-                    }, 2000);
-                }
-            }
-
-            showInitialMessage() {
-                this.showMessage('Step 1: Place the Substrates', '');
-            }
-
-            showHint() {
-                if (this.currentStep === 1) {
-                    const completedMolecules = new Set(
-                        Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
-                            .map(m => m.dataset.name)
-                    );
-                    
-                    let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
-                    
-                    if (nextStep) {
-                        this.score = Math.max(0, this.score - 2);
-                        this.scoreElement.textContent = this.score;
-                        this.showMessage(`Next molecule: ${nextStep.name} (-2 points)`, 'hint');
-                    }
-                } else {
-                    const completedEnzymes = new Set(
-                        Array.from(document.querySelectorAll('.enzyme[style*="pointer-events: none"]'))
-                            .map(e => e.dataset.target)
-                    );
-                    
-                    let nextStep = this.enzymeSteps.find(step => !completedEnzymes.has(step.target));
-                    
-                    if (nextStep) {
-                        this.score = Math.max(0, this.score - 2);
-                        this.scoreElement.textContent = this.score;
-                        this.showMessage(`Next enzyme: ${nextStep.name} (-2 points)`, 'hint');
-                    }
-                }
-            }
-
             reset() {
                 this.molecules.forEach(molecule => molecule.remove());
                 this.enzymes.forEach(enzyme => enzyme.remove());
+                this.reactionTypes.forEach(reaction => reaction.remove());
                 this.targetZones.forEach(zone => zone.remove());
                 this.enzymeTargets.forEach(target => target.remove());
 
@@ -720,6 +876,7 @@
                 this.scoreElement.textContent = '0';
                 this.molecules = [];
                 this.enzymes = [];
+                this.reactionTypes = [];
                 this.targetZones = [];
                 this.enzymeTargets = [];
                 this.isDragging = false;
