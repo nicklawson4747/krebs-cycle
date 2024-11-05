@@ -506,6 +506,13 @@
 
                 if (minDistance < 50) {
                     const zoneIndex = parseInt(closestZone.dataset.index);
+                    
+                    // Check if target is already occupied
+                    const existingMolecule = this.targetIsOccupied(closestZone);
+                    if (existingMolecule) {
+                        return; // Exit if target is already occupied
+                    }
+
                     const isCorrect = this.steps[zoneIndex].name === this.currentMolecule.dataset.name;
 
                     if (isCorrect) {
@@ -519,7 +526,6 @@
                         this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
                         this.currentMolecule.style.pointerEvents = 'none';
                         
-                        // Check if all molecules are placed correctly
                         const placedMolecules = document.querySelectorAll('.molecule[style*="pointer-events: none"]');
                         if (placedMolecules.length === this.steps.length) {
                             this.startStep2();
@@ -581,6 +587,13 @@
                 this.enzymes.forEach(enzyme => {
                     enzyme.addEventListener('mousedown', (e) => this.startDrag(e, enzyme));
                     enzyme.addEventListener('touchstart', (e) => this.startDrag(e, enzyme));
+                });
+            }
+
+            setupReactionTypeDragAndDrop() {
+                this.reactionTypes.forEach(reaction => {
+                    reaction.addEventListener('mousedown', (e) => this.startDrag(e, reaction));
+                    reaction.addEventListener('touchstart', (e) => this.startDrag(e, reaction));
                 });
             }
 
@@ -665,12 +678,11 @@
 
                         this.gameArea.appendChild(reactionBubble);
                         this.reactionTypes.push(reactionBubble);
-
-                        // Add drag and drop functionality
-                        reactionBubble.addEventListener('mousedown', (e) => this.startDrag(e, reactionBubble));
-                        reactionBubble.addEventListener('touchstart', (e) => this.startDrag(e, reactionBubble));
                     }
                 });
+
+                // Set up drag and drop for all reaction types at once
+                this.setupReactionTypeDragAndDrop();
             }
 
             checkReactionTypePlacement() {
@@ -702,6 +714,12 @@
                 });
 
                 if (minDistance < 50) {
+                    // Check if target is already occupied
+                    const existingReaction = this.targetIsOccupied(closestTarget);
+                    if (existingReaction) {
+                        return; // Exit if target is already occupied
+                    }
+
                     const reactionType = this.currentMolecule.dataset.type;
                     const expectedReactionType = this.reactionMapping[closestTarget.dataset.target];
                     const isCorrect = reactionType === expectedReactionType;
@@ -717,7 +735,6 @@
                         this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
                         this.currentMolecule.style.pointerEvents = 'none';
                         
-                        // Check if all reaction types are placed
                         const placedReactions = document.querySelectorAll('.reaction-type[style*="pointer-events: none"]');
                         if (placedReactions.length === Object.keys(this.reactionMapping).length) {
                             this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
@@ -728,6 +745,30 @@
                         this.showMessage('Try again! -5 points', 'incorrect');
                     }
                 }
+            }
+
+            targetIsOccupied(target) {
+                const targetRect = target.getBoundingClientRect();
+                const gameRect = this.gameArea.getBoundingClientRect();
+                const targetX = targetRect.left - gameRect.left + 5;
+                const targetY = targetRect.top - gameRect.top + 5;
+
+                // Only check for elements that match the current step
+                const selector = this.currentStep === 1 ? '.molecule:not(.completed)' :
+                                this.currentStep === 2 ? '.enzyme:not(.completed)' :
+                                '.reaction-type';
+
+                // Check for any active element that has these exact coordinates
+                const existingElement = Array.from(document.querySelectorAll(selector))
+                    .find(element => {
+                        const left = parseFloat(element.style.left);
+                        const top = parseFloat(element.style.top);
+                        return Math.abs(left - targetX) < 1 && 
+                            Math.abs(top - targetY) < 1 && 
+                            element.style.pointerEvents === 'none';
+                    });
+
+                return existingElement;
             }
 
             endDrag() {
@@ -777,7 +818,14 @@
                 } else if (this.currentStep === 3) {
                     const completedReactions = new Set(
                         Array.from(document.querySelectorAll('.reaction-type[style*="pointer-events: none"]'))
-                            .map(r => r.parentElement?.dataset?.target)
+                            .map(r => {
+                                const rect = r.getBoundingClientRect();
+                                const targets = this.enzymeTargets.filter(t => {
+                                    const tRect = t.getBoundingClientRect();
+                                    return Math.abs(rect.left - tRect.left) < 10 && Math.abs(rect.top - tRect.top) < 10;
+                                });
+                                return targets[0]?.dataset.target;
+                            })
                             .filter(Boolean)
                     );
                     
@@ -821,6 +869,12 @@
                 });
 
                 if (minDistance < 50) {
+                    // Check if target is already occupied
+                    const existingEnzyme = this.targetIsOccupied(closestTarget);
+                    if (existingEnzyme) {
+                        return; // Exit if target is already occupied
+                    }
+
                     let isCorrect = false;
                     const enzymeName = this.currentMolecule.dataset.name;
                     const targetPosition = closestTarget.dataset.target;
@@ -846,7 +900,6 @@
                         this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
                         this.currentMolecule.style.pointerEvents = 'none';
                         
-                        // Check if all enzymes are placed
                         const placedEnzymes = document.querySelectorAll('.enzyme[style*="pointer-events: none"]');
                         if (placedEnzymes.length === this.enzymeSteps.length) {
                             this.startStep3();
