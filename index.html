@@ -89,14 +89,38 @@
             font-weight: bold;
             cursor: pointer;
             user-select: none;
-            transition: transform 0.2s;
+            transition: transform 0.2s, background-color 0.5s;
             font-size: 8px;
             text-align: center;
             padding: 5px;
             word-wrap: break-word;
         }
 
-        .molecule.dragging {
+        .enzyme {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #FF9800;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s;
+            font-size: 7px;
+            text-align: center;
+            padding: 4px;
+            word-wrap: break-word;
+        }
+
+        .molecule.completed {
+            background-color: #808080;
+        }
+
+        .molecule.dragging, .enzyme.dragging {
             transform: scale(1.1);
             z-index: 1000;
         }
@@ -106,6 +130,17 @@
             width: 70px;
             height: 70px;
             border: 2px dashed #666;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .enzyme-target {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px dashed #FF9800;
             border-radius: 50%;
             display: flex;
             justify-content: center;
@@ -162,12 +197,78 @@
             cursor: not-allowed;
         }
 
+        html, body {
+            position: fixed;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .molecule, .enzyme {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        * { 
+            touch-action: manipulation;
+        }
+
         @supports (padding-top: env(safe-area-inset-top)) {
             .header {
                 padding-top: env(safe-area-inset-top);
             }
             .controls-container {
                 padding-bottom: calc(10px + env(safe-area-inset-bottom));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .molecule {
+                width: 50px;
+                height: 50px;
+                font-size: 7px;
+                padding: 3px;
+            }
+
+            .enzyme {
+                width: 40px;
+                height: 40px;
+                font-size: 6px;
+                padding: 2px;
+            }
+
+            .target-zone {
+                width: 60px;
+                height: 60px;
+            }
+
+            .enzyme-target {
+                width: 50px;
+                height: 50px;
+            }
+
+            .header h2 {
+                font-size: 1.2rem;
+            }
+
+            .score {
+                font-size: 0.9rem;
+            }
+
+            #message {
+                font-size: 12px;
+            }
+
+            button {
+                padding: 6px 12px;
+                font-size: 12px;
             }
         }
     </style>
@@ -194,11 +295,13 @@
         class KrebsCycleGame {
             constructor() {
                 this.score = 0;
-                this.currentStep = 0;
+                this.currentStep = 1;
                 this.isDragging = false;
                 this.currentMolecule = null;
                 this.molecules = [];
+                this.enzymes = [];
                 this.targetZones = [];
+                this.enzymeTargets = [];
                 
                 this.steps = [
                     { name: "Citrate", color: "#2196F3" },
@@ -211,6 +314,19 @@
                     { name: "Fumarate", color: "#FF5722" },
                     { name: "Malate", color: "#DAA520" },
                     { name: "Oxaloacetate", color: "#607D8B" }
+                ];
+
+                this.enzymeSteps = [
+                    { name: "Aconitase", target: "Citrate-cis-Aconitate" },
+                    { name: "Aconitase", target: "cis-Aconitate-Isocitrate" },
+                    { name: "Isocitrate dehydrogenase", target: "Isocitrate-Oxalosuccinate" },
+                    { name: "Isocitrate dehydrogenase", target: "Oxalosuccinate-α-Ketoglutarate" },
+                    { name: "α-Ketoglutarate-dehydrogenase", target: "α-Ketoglutarate-Succinyl-CoA" },
+                    { name: "Succinyl-CoA synthetase", target: "Succinyl-CoA-Succinate" },
+                    { name: "Succinate dehydrogenase", target: "Succinate-Fumarate" },
+                    { name: "Fumarase", target: "Fumarate-Malate" },
+                    { name: "Malate dehydrogenase", target: "Malate-Oxaloacetate" },
+                    { name: "Citrate synthase", target: "Oxaloacetate-Citrate" }
                 ];
 
                 this.init();
@@ -239,7 +355,6 @@
                 const verticalOffset = this.gameArea.clientHeight * 0.1;
 
                 this.steps.forEach((step, index) => {
-                    // Start at -90 degrees (top) and go clockwise
                     const angle = ((index * 360 / this.steps.length) - 90) * (Math.PI / 180);
                     const x = centerX + radius * Math.cos(angle) - 35;
                     const y = centerY + radius * Math.sin(angle) - 35 - verticalOffset;
@@ -255,12 +370,54 @@
                 });
             }
 
+            createEnzymeTargets() {
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.2;
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
+
+                this.enzymeSteps.forEach((step, index) => {
+                    const angle = ((index * 360 / this.enzymeSteps.length + 360 / (this.enzymeSteps.length * 2)) - 90) * (Math.PI / 180);
+                    const x = centerX + radius * Math.cos(angle) - 30;
+                    const y = centerY + radius * Math.sin(angle) - 30 - verticalOffset;
+
+                    const target = document.createElement('div');
+                    target.className = 'enzyme-target';
+                    target.style.left = `${x}px`;
+                    target.style.top = `${y}px`;
+                    target.dataset.target = step.target;
+
+                    this.gameArea.appendChild(target);
+                    this.enzymeTargets.push(target);
+                });
+            }
+
+            createEnzymes() {
+                const shuffledEnzymes = [...this.enzymeSteps]
+                    .sort(() => Math.random() - 0.5);
+
+                shuffledEnzymes.forEach((step, index) => {
+                    const enzyme = document.createElement('div');
+                    enzyme.className = 'enzyme';
+                    enzyme.textContent = step.name;
+                    enzyme.dataset.name = step.name;
+                    enzyme.dataset.target = step.target;
+                    
+                    const x = (this.gameArea.clientWidth / (shuffledEnzymes.length + 1)) * (index + 1) - 25;
+                    const y = this.gameArea.clientHeight - 80;
+                    
+                    enzyme.style.left = `${x}px`;
+                    enzyme.style.top = `${y}px`;
+
+                    this.gameArea.appendChild(enzyme);
+                    this.enzymes.push(enzyme);
+                });
+            }
+
             createCycleArrow() {
                 const centerX = this.gameArea.clientWidth / 2;
                 const centerY = this.gameArea.clientHeight / 2;
-                // Make the arrow radius much smaller than the target zones radius
-                const targetRadius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.3;
-                const arrowRadius = targetRadius * 0.4; // Reduce to 40% of the target radius
+                const arrowRadius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.12;
                 const verticalOffset = this.gameArea.clientHeight * 0.1;
 
                 const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -269,15 +426,10 @@
                 arrow.setAttribute("height", this.gameArea.clientHeight);
                 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                
-                // Start slightly offset from the top to avoid overlapping with target zones
-                const startAngle = -85; // Slightly offset from -90 to avoid direct overlap
-                
-                // Calculate start and end points
+                const startAngle = -85;
                 const startX = centerX + arrowRadius * Math.cos(startAngle * Math.PI / 180);
                 const startY = centerY + arrowRadius * Math.sin(startAngle * Math.PI / 180) - verticalOffset;
                 
-                // Create the arc path with a small gap at the end
                 const arcPath = `
                     M ${startX} ${startY}
                     A ${arrowRadius} ${arrowRadius} 0 1 1 ${startX - 1} ${startY}
@@ -288,7 +440,6 @@
                 path.setAttribute("stroke", "#666666");
                 path.setAttribute("stroke-width", "1.5");
                 
-                // Create a smaller arrowhead
                 const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
                 marker.setAttribute("id", "arrowhead");
                 marker.setAttribute("markerWidth", "8");
@@ -303,15 +454,12 @@
                 
                 marker.appendChild(polygon);
                 arrow.appendChild(marker);
-                
                 path.setAttribute("marker-end", "url(#arrowhead)");
-                
                 arrow.appendChild(path);
                 this.gameArea.insertBefore(arrow, this.gameArea.firstChild);
             }
 
             createMolecules() {
-                // Create array of all steps except Citrate
                 const shuffledSteps = [...this.steps.slice(1)]
                     .sort(() => Math.random() - 0.5);
 
@@ -322,7 +470,6 @@
                     molecule.style.backgroundColor = step.color;
                     molecule.dataset.name = step.name;
                     
-                    // Adjust spacing for 9 molecules instead of 10
                     const x = (this.gameArea.clientWidth / (shuffledSteps.length + 1)) * (index + 1) - 30;
                     const y = this.gameArea.clientHeight - 80;
                     
@@ -345,9 +492,8 @@
                 molecule.textContent = citrate.name;
                 molecule.style.backgroundColor = citrate.color;
                 molecule.dataset.name = citrate.name;
-                molecule.style.pointerEvents = 'none'; // Make it non-draggable
+                molecule.style.pointerEvents = 'none';
 
-                // Place it in the first target zone (top position)
                 const zone = this.targetZones[0];
                 const zoneRect = zone.getBoundingClientRect();
                 const gameRect = this.gameArea.getBoundingClientRect();
@@ -358,44 +504,68 @@
                 this.gameArea.appendChild(molecule);
                 this.molecules.push(molecule);
                 
-                // Start with 10 points since Citrate is pre-placed
                 this.score = 10;
                 this.scoreElement.textContent = this.score;
             }
 
             setupDragAndDrop() {
+                const touchOptions = { passive: false };
+                
                 this.molecules.forEach(molecule => {
-                    if (molecule.dataset.name !== "Citrate") { // Don't add listeners to Citrate
+                    if (molecule.dataset.name !== "Citrate") {
                         molecule.addEventListener('mousedown', (e) => this.startDrag(e, molecule));
-                        molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule));
+                        molecule.addEventListener('touchstart', (e) => this.startDrag(e, molecule), touchOptions);
                     }
                 });
 
                 document.addEventListener('mousemove', (e) => this.drag(e));
-                document.addEventListener('touchmove', (e) => this.drag(e));
+                document.addEventListener('touchmove', (e) => this.drag(e), touchOptions);
                 document.addEventListener('mouseup', () => this.endDrag());
                 document.addEventListener('touchend', () => this.endDrag());
+                document.addEventListener('touchcancel', () => this.endDrag());
             }
 
-            startDrag(e, molecule) {
-                if (e.type === 'touchstart') {
+            setupEnzymeDragAndDrop() {
+                const touchOptions = { passive: false };
+                
+                this.enzymes.forEach(enzyme => {
+                    enzyme.addEventListener('mousedown', (e) => this.startDrag(e, enzyme));
+                    enzyme.addEventListener('touchstart', (e) => this.startDrag(e, enzyme), touchOptions);
+                });
+            }
+
+            startDrag(e, element) {
+                if (e.cancelable) {
                     e.preventDefault();
+                }
+                
+                if (e.type === 'touchstart') {
                     e = e.touches[0];
                 }
+                
                 this.isDragging = true;
-                this.currentMolecule = molecule;
+                this.currentMolecule = element;
                 this.currentMolecule.classList.add('dragging');
 
-                const rect = molecule.getBoundingClientRect();
-                this.offsetX = e.clientX - rect.left;
-                this.offsetY = e.clientY - rect.top;
+                const rect = element.getBoundingClientRect();
+                
+                if (e.type === 'touchstart') {
+                    this.offsetX = element.offsetWidth / 2;
+                    this.offsetY = element.offsetHeight / 2;
+                } else {
+                    this.offsetX = e.clientX - rect.left;
+                    this.offsetY = e.clientY - rect.top;
+                }
             }
 
             drag(e) {
                 if (!this.isDragging) return;
                 
-                if (e.type === 'touchmove') {
+                if (e.cancelable) {
                     e.preventDefault();
+                }
+                
+                if (e.type === 'touchmove') {
                     e = e.touches[0];
                 }
 
@@ -403,8 +573,12 @@
                 let x = e.clientX - gameRect.left - this.offsetX;
                 let y = e.clientY - gameRect.top - this.offsetY;
 
-                x = Math.max(0, Math.min(x, gameRect.width - 60));
-                y = Math.max(0, Math.min(y, gameRect.height - 60));
+                const elementWidth = this.currentMolecule.classList.contains('enzyme') ? 
+                    (window.innerWidth <= 768 ? 40 : 50) : 
+                    (window.innerWidth <= 768 ? 50 : 60);
+                
+                x = Math.max(0, Math.min(x, gameRect.width - elementWidth));
+                y = Math.max(0, Math.min(y, gameRect.height - elementWidth));
 
                 this.currentMolecule.style.left = `${x}px`;
                 this.currentMolecule.style.top = `${y}px`;
@@ -416,12 +590,16 @@
                 
                 if (this.currentMolecule) {
                     this.currentMolecule.classList.remove('dragging');
-                    this.checkPlacement();
+                    if (this.currentStep === 1 && this.currentMolecule.classList.contains('molecule')) {
+                        this.checkMoleculePlacement();
+                    } else if (this.currentStep === 2 && this.currentMolecule.classList.contains('enzyme')) {
+                        this.checkEnzymePlacement();
+                    }
                     this.currentMolecule = null;
                 }
             }
 
-            checkPlacement() {
+            checkMoleculePlacement() {
                 const moleculeRect = this.currentMolecule.getBoundingClientRect();
                 const moleculeCenter = {
                     x: moleculeRect.left + moleculeRect.width / 2,
@@ -462,10 +640,64 @@
                         const gameRect = this.gameArea.getBoundingClientRect();
                         this.currentMolecule.style.left = `${zoneRect.left - gameRect.left + 5}px`;
                         this.currentMolecule.style.top = `${zoneRect.top - gameRect.top + 5}px`;
-                        
                         this.currentMolecule.style.pointerEvents = 'none';
                         
                         if (this.score === this.steps.length * 10) {
+                            this.startStep2();
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 5);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Try again! -5 points', 'incorrect');
+                    }
+                }
+            }
+
+            checkEnzymePlacement() {
+                const enzymeRect = this.currentMolecule.getBoundingClientRect();
+                const enzymeCenter = {
+                    x: enzymeRect.left + enzymeRect.width / 2,
+                    y: enzymeRect.top + enzymeRect.height / 2
+                };
+
+                let closestTarget = null;
+                let minDistance = Infinity;
+
+                this.enzymeTargets.forEach(target => {
+                    const targetRect = target.getBoundingClientRect();
+                    const targetCenter = {
+                        x: targetRect.left + targetRect.width / 2,
+                        y: targetRect.top + targetRect.height / 2
+                    };
+
+                    const distance = Math.hypot(
+                        enzymeCenter.x - targetCenter.x,
+                        enzymeCenter.y - targetCenter.y
+                    );
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestTarget = target;
+                    }
+                });
+
+                if (minDistance < 50) {
+                    const isCorrect = this.currentMolecule.dataset.name === 'Aconitase' ||
+                                    this.currentMolecule.dataset.name === 'Isocitrate dehydrogenase' ||
+                                    this.currentMolecule.dataset.target === closestTarget.dataset.target;
+
+                    if (isCorrect) {
+                        this.score += 10;
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Correct! +10 points', 'correct');
+                        
+                        const targetRect = closestTarget.getBoundingClientRect();
+                        const gameRect = this.gameArea.getBoundingClientRect();
+                        this.currentMolecule.style.left = `${targetRect.left - gameRect.left + 5}px`;
+                        this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
+                        this.currentMolecule.style.pointerEvents = 'none';
+                        
+                        if (this.score === (this.steps.length + this.enzymeSteps.length) * 10) {
                             this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
                         }
                     } else {
@@ -476,46 +708,75 @@
                 }
             }
 
+            startStep2() {
+                this.currentStep = 2;
+                this.showMessage('Step 2: Place the Enzymes', '');
+                
+                // Change molecule colors to gray
+                this.molecules.forEach(molecule => {
+                    molecule.classList.add('completed');
+                });
+
+                // Create enzyme targets and enzymes
+                this.createEnzymeTargets();
+                this.createEnzymes();
+                this.setupEnzymeDragAndDrop();
+            }
+
             showMessage(text, type) {
                 this.messageElement.textContent = text;
                 this.messageElement.className = type;
                 this.messageElement.style.display = 'block';
                 
-                if (text !== "Step 1: Place the Substrates") {
+                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes'].includes(text)) {
                     setTimeout(() => {
-                        this.messageElement.textContent = '';
+                        this.messageElement.textContent = this.currentStep === 1 ? 
+                            'Step 1: Place the Substrates' : 
+                            'Step 2: Place the Enzymes';
                         this.messageElement.className = '';
                     }, 2000);
                 }
             }
 
             showInitialMessage() {
-                this.messageElement.textContent = "Step 1: Place the Substrates";
-                this.messageElement.className = '';
-                this.messageElement.style.display = 'block';
+                this.showMessage('Step 1: Place the Substrates', '');
             }
 
             showHint() {
-                const completedMolecules = new Set(
-                    Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
-                        .map(m => m.dataset.name)
-                );
-                
-                let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
-                
-                if (nextStep) {
-                    // Apply 2-point penalty
-                    this.score = Math.max(0, this.score - 2); // Ensures score doesn't go below 0
-                    this.scoreElement.textContent = this.score;
+                if (this.currentStep === 1) {
+                    const completedMolecules = new Set(
+                        Array.from(document.querySelectorAll('.molecule[style*="pointer-events: none"]'))
+                            .map(m => m.dataset.name)
+                    );
                     
-                    // Update message to show both hint and penalty
-                    this.showMessage(`Next molecule: ${nextStep.name} (-2 points)`, 'hint');
+                    let nextStep = this.steps.find(step => !completedMolecules.has(step.name));
+                    
+                    if (nextStep) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next molecule: ${nextStep.name} (-2 points)`, 'hint');
+                    }
+                } else {
+                    const completedEnzymes = new Set(
+                        Array.from(document.querySelectorAll('.enzyme[style*="pointer-events: none"]'))
+                            .map(e => e.dataset.target)
+                    );
+                    
+                    let nextStep = this.enzymeSteps.find(step => !completedEnzymes.has(step.target));
+                    
+                    if (nextStep) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next enzyme: ${nextStep.name} (-2 points)`, 'hint');
+                    }
                 }
             }
 
             reset() {
                 this.molecules.forEach(molecule => molecule.remove());
+                this.enzymes.forEach(enzyme => enzyme.remove());
                 this.targetZones.forEach(zone => zone.remove());
+                this.enzymeTargets.forEach(target => target.remove());
 
                 const existingArrow = this.gameArea.querySelector('.cycle-arrow');
                 if (existingArrow) {
@@ -523,9 +784,12 @@
                 }
                 
                 this.score = 0;
+                this.currentStep = 1;
                 this.scoreElement.textContent = '0';
                 this.molecules = [];
+                this.enzymes = [];
                 this.targetZones = [];
+                this.enzymeTargets = [];
                 this.isDragging = false;
                 this.currentMolecule = null;
                 
@@ -540,6 +804,18 @@
 
         window.addEventListener('load', () => {
             new KrebsCycleGame();
+        });
+
+        window.addEventListener('load', () => {
+            new KrebsCycleGame();
+            
+            document.addEventListener('touchmove', (e) => {
+                if (e.cancelable) e.preventDefault();
+            }, { passive: false });
+            
+            document.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+            }, { passive: false });
         });
     </script>
 </body>
