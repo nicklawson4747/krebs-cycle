@@ -375,9 +375,9 @@
                     "Dehydration": "#8B4513",
                     "Hydration": "#20B2AA",
                     "Oxidation": "#9932CC",
-                    "Decarboxylation": "#CD853F",
-                    "Oxidative decarboxylation": "#FF4500",
-                    "Substrate-level phosphorylation": "#4682B4",
+                    "Decarboxylation": "#262262",
+                    "Oxidative decarboxylation": "#4682B4",
+                    "Substrate-level phosphorylation": "#FF4500",
                     "Aldol condensation": "#556B2F"
                 };
 
@@ -395,10 +395,10 @@
                 };
 
                 this.productColors = {
-                    "+H₂O": "#45B7D1",
+                    "+H₂O": "#A97C50",
                     "–H₂O": "#4ECDC4",
                     "NAD⁺ → NADH": "#9B59B6",
-                    "+CO₂": "#96CEB4",
+                    "+CO₂": "#2B3990",
                     "FAD → FADH₂": "#D4A5A5",
                     "ADP → ATP": "#FF6B6B",
                     "NAD⁺ → NADH\n+CO₂": "#45B7D1"
@@ -718,7 +718,6 @@
             }
 
             showMessage(text, type) {
-                // Clear any existing timer
                 if (this.messageTimer) {
                     clearTimeout(this.messageTimer);
                     this.messageTimer = null;
@@ -729,10 +728,11 @@
                 this.messageElement.style.display = 'block';
                 
                 if (!['Step 1: Place the Substrates', 
-                      'Step 2: Place the Enzymes',
-                      'Step 3: Determine Reaction Types',
-                      'Step 4: Add Substrates and Products',
-                      'Step 5: Balance the Products'
+                    'Step 2: Place the Enzymes',
+                    'Step 3: Determine Reaction Types',
+                    'Step 4: Add Substrates and Products',
+                    'Step 5: Balance the Products',
+                    'Step 6: Which Reaction Also Consumes Acetyl-CoA?' // Add this line
                     ].includes(text)) {
                     this.messageTimer = setTimeout(() => {
                         this.messageElement.textContent = 
@@ -740,7 +740,8 @@
                             this.currentStep === 2 ? 'Step 2: Place the Enzymes' :
                             this.currentStep === 3 ? 'Step 3: Determine Reaction Types' :
                             this.currentStep === 4 ? 'Step 4: Add Substrates and Products' :
-                            'Step 5: Balance the Products';
+                            this.currentStep === 5 ? 'Step 5: Balance the Products' :
+                            'Step 6: Which Reaction Also Consumes Acetyl-CoA?'; // Add this line
                         this.messageElement.className = '';
                         this.messageTimer = null;
                     }, 2000);
@@ -1136,25 +1137,76 @@
                     // Disable all counter buttons
                     const buttons = document.querySelectorAll('.counter-button');
                     buttons.forEach(button => button.disabled = true);
-                    // You might want to add a call to start Step 6 here later
+                    // Start Step 6
+                    setTimeout(() => this.startStep6(), 2000);
                 }
             }
 
-            showHint() {
-                if (this.currentStep === 5) {
-                    const incorrectCounters = this.counters.slice(0, 5).filter(counter => 
-                        counter.current !== counter.target
-                    );
+            startStep6() {
+                this.currentStep = 6;
+                this.showMessage('Step 6: Which Reaction Also Consumes Acetyl-CoA?', '');
+
+                // Update target colors
+                const productTargets = document.querySelectorAll('.product-target');
+                productTargets.forEach(target => {
+                    target.style.borderColor = '#404040';
+                });
+
+                const enzymeTargets = document.querySelectorAll('.enzyme-target');
+                enzymeTargets.forEach(target => {
+                    target.style.borderColor = '#4CAF50';
+                });
+
+                // Remove any existing event listeners and add click handlers
+                const reactionTypes = document.querySelectorAll('.reaction-type');
+                reactionTypes.forEach(reaction => {
+                    // Remove drag-related classes and properties
+                    reaction.classList.remove('dragging');
+                    reaction.style.cursor = 'pointer';
+                    reaction.style.pointerEvents = 'auto';
                     
-                    if (incorrectCounters.length > 0) {
-                        const randomCounter = incorrectCounters[Math.floor(Math.random() * incorrectCounters.length)];
-                        this.score = Math.max(0, this.score - 2);
-                        this.scoreElement.textContent = this.score;
-                        this.showMessage(`Target for ${randomCounter.name}: ${randomCounter.target > 0 ? '+' + randomCounter.target : randomCounter.target} (-2 points)`, 'hint');
-                    }
+                    // Clear any existing event listeners
+                    const newReaction = reaction.cloneNode(true);
+                    reaction.parentNode.replaceChild(newReaction, reaction);
+                    
+                    // Add new click handler
+                    newReaction.addEventListener('click', () => this.handleStep6Click(newReaction));
+                });
+            }
+
+            handleStep6Click(reaction) {
+                if (this.currentStep !== 6) return;
+
+                if (reaction.dataset.type === 'Aldol condensation') {
+                    // Correct answer
+                    this.score += 10;
+                    this.scoreElement.textContent = this.score;
+                    
+                    // Update the clicked reaction
+                    reaction.textContent = '–Acetyl-CoA';
+                    reaction.style.backgroundColor = '#228B22'; // Forest green
+                    
+                    // Fade out targets
+                    const targets = document.querySelectorAll('.enzyme-target, .product-target');
+                    targets.forEach(target => {
+                        target.style.opacity = '0';
+                        target.style.transition = 'opacity 0.5s';
+                    });
+                    
+                    // Remove other reactions and enzymes
+                    const allElements = document.querySelectorAll('.reaction-type, .enzyme');
+                    allElements.forEach(element => {
+                        if (element !== reaction) {
+                            element.remove();
+                        }
+                    });
+
+                    // We'll add transition to Step 7 here later
                 } else {
-                    // Previous hint logic remains unchanged
-                    super.showHint();
+                    // Incorrect answer
+                    this.score = Math.max(0, this.score - 5);
+                    this.scoreElement.textContent = this.score;
+                    this.showMessage('Try again! -5 points', 'incorrect');
                 }
             }
 
@@ -1229,6 +1281,21 @@
                         this.scoreElement.textContent = this.score;
                         this.showMessage(`Next product for ${nextTarget[0]}: ${nextTarget[1]} (-2 points)`, 'hint');
                     }
+                } else if (this.currentStep === 5) {
+                    const incorrectCounters = this.counters.slice(0, 5).filter(counter => 
+                        counter.current !== counter.target
+                    );
+                    
+                    if (incorrectCounters.length > 0) {
+                        const randomCounter = incorrectCounters[Math.floor(Math.random() * incorrectCounters.length)];
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Target for ${randomCounter.name}: ${randomCounter.target > 0 ? '+' + randomCounter.target : randomCounter.target} (-2 points)`, 'hint');
+                    }
+                } else if (this.currentStep === 6) {
+                    this.score = Math.max(0, this.score - 2);
+                    this.scoreElement.textContent = this.score;
+                    this.showMessage("It's one of the reactions that also consumes H₂O (-2 points)", 'hint');
                 }
             }
 
