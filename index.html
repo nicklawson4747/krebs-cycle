@@ -1035,6 +1035,7 @@
                 const selector = this.currentStep === 1 ? '.molecule:not(.completed)' :
                                 this.currentStep === 2 ? '.enzyme:not(.completed)' :
                                 this.currentStep === 3 ? '.reaction-type' :
+                                this.currentStep === 4 ? '.product' :  // Add this line
                                 this.currentStep === 8 ? '.molecule.completed, .reaction-type' :
                                 '.reaction-type';
 
@@ -1195,7 +1196,7 @@
                     
                     // Update the clicked reaction
                     reaction.textContent = '–Acetyl-CoA';
-                    reaction.style.backgroundColor = '#228B22'; // Forest green
+                    reaction.style.backgroundColor = '#EE2A7B';
                     
                     // Fade out targets
                     const targets = document.querySelectorAll('.enzyme-target, .product-target');
@@ -1281,8 +1282,8 @@
                     product.style.cursor = 'default';
                 });
 
-                // Make the "–Acetyl-CoA" bubble clickable again
-                const acetylCoA = document.querySelector('.reaction-type[style*="background-color: rgb(34, 139, 34)"]');
+                // Update selector to find the Acetyl-CoA bubble regardless of its current color
+                const acetylCoA = document.querySelector('.reaction-type');
                 if (acetylCoA) {
                     acetylCoA.style.cursor = 'pointer';
                     acetylCoA.style.pointerEvents = 'auto';
