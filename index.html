@@ -222,25 +222,34 @@
         }
 
         .counter-container {
-            position: absolute;  /* Change from fixed to absolute */
-            bottom: 0;      /* Adjust this value as needed */
+            position: absolute;
+            bottom: 0;
             left: 0;
             right: 0;
-            display: flex;
-            justify-content: space-around;
-            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Display in 2 rows of 3 */
+            gap: 10px;
+            padding: 10px;
             background-color: rgba(255, 255, 255, 0.9);
-            z-index: 1000;      /* Add this to ensure counters appear above other elements */
+            z-index: 1000;
         }
 
         .counter {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 10px;
-            border-radius: 8px;
+            padding: 3px; /* Reduced from 5px */
+            border-radius: 6px;
             background-color: white;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .counter-name {
+            font-size: 10px;
+            margin-bottom: 2px; /* Reduced from 3px */
+            text-align: center;
+            min-height: 20px; /* Reduced from 24px */
+            line-height: 1; /* Added to reduce vertical spacing */
         }
 
         .counter.disabled {
@@ -248,31 +257,22 @@
             pointer-events: none;
         }
 
-        .counter-name {
-            font-size: 12px;
-            margin-bottom: 5px;
-            text-align: center;
-            min-height: 30px;
-        }
-
         .counter-controls {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 5px;
         }
 
         .counter-button {
-            width: 24px;
-            height: 24px;
-            border-radius: 12px;
-            border: none;
-            background-color: #4CAF50;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: flex;         /* Added */
+            align-items: center;   /* Added */
+            justify-content: center; /* Added */
+            line-height: 1;        /* Added */
+            padding: 0;           /* Added */
         }
 
         .counter-button:disabled {
@@ -281,9 +281,9 @@
         }
 
         .counter-value {
-            min-width: 40px;
+            min-width: 30px;
             text-align: center;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
         }
 
