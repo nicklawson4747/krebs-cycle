@@ -152,6 +152,25 @@
             border-color: #4CAF50;
         }
 
+        .product-target {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px dashed #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: border-color 0.5s ease;
+        }
+
+        .product {
+            width: 50px;
+            height: 50px;
+            font-size: 6px;
+            white-space: pre-wrap;
+        }
+
         .cycle-arrow {
             position: absolute;
             z-index: 0;
@@ -242,6 +261,8 @@
                 this.reactionTypes = [];
                 this.targetZones = [];
                 this.enzymeTargets = [];
+                this.products = [];
+                this.productTargets = [];
                 
                 this.steps = [
                     { name: "Citrate", color: "#2196F3" },
@@ -291,6 +312,29 @@
                     "Oxidative decarboxylation": "#FF4500",
                     "Substrate-level phosphorylation": "#4682B4",
                     "Aldol condensation": "#556B2F"
+                };
+
+                this.productMapping = {
+                    "Citrate-cis-Aconitate": "+H₂O",
+                    "cis-Aconitate-Isocitrate": "–H₂O",
+                    "Isocitrate-Oxalosuccinate": "NAD⁺ → NADH",
+                    "Oxalosuccinate-α-Ketoglutarate": "+CO₂",
+                    "α-Ketoglutarate-Succinyl-CoA": "NAD⁺ → NADH\nCO₂",
+                    "Succinyl-CoA-Succinate": "ADP → ATP",
+                    "Succinate-Fumarate": "Q → QH₂",
+                    "Fumarate-Malate": "–H₂O",
+                    "Malate-Oxaloacetate": "NAD⁺ → NADH",
+                    "Oxaloacetate-Citrate": "–H₂O"
+                };
+
+                this.productColors = {
+                    "+H₂O": "#45B7D1",
+                    "–H₂O": "#4ECDC4",
+                    "NAD⁺ → NADH": "#9B59B6",
+                    "+CO₂": "#96CEB4",
+                    "Q → QH₂": "#D4A5A5",
+                    "ADP → ATP": "#FF6B6B",
+                    "NAD⁺ → NADH\nCO₂": "#45B7D1"
                 };
 
                 this.init();
@@ -602,12 +646,13 @@
                 this.messageElement.className = type;
                 this.messageElement.style.display = 'block';
                 
-                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes', 'Step 3: Determine Reaction Types'].includes(text)) {
+                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes', 'Step 3: Determine Reaction Types', 'Step 4: Add Substrates and Products'].includes(text)) {
                     setTimeout(() => {
                         this.messageElement.textContent = 
                             this.currentStep === 1 ? 'Step 1: Place the Substrates' :
                             this.currentStep === 2 ? 'Step 2: Place the Enzymes' :
-                            'Step 3: Determine Reaction Types';
+                            this.currentStep === 3 ? 'Step 3: Determine Reaction Types' :
+                            'Step 4: Add Substrates and Products';
                         this.messageElement.className = '';
                     }, 2000);
                 }
@@ -651,6 +696,45 @@
 
                 // Create reaction type bubbles
                 this.createReactionTypes();
+            }
+
+            startStep4() {
+                this.currentStep = 4;
+                this.showMessage('Step 4: Add Substrates and Products', '');
+
+                // Update enzyme target borders to dark gray
+                const allEnzymeTargets = document.querySelectorAll('.enzyme-target');
+                allEnzymeTargets.forEach(target => {
+                    target.classList.remove('step3');
+                    target.style.borderColor = '#404040';
+                });
+
+                // Create product targets and products
+                this.createProductTargets();
+                this.createProducts();
+                this.setupProductDragAndDrop();
+            }
+
+            createProductTargets() {
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.4; // Larger radius than enzyme targets
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
+
+                this.enzymeSteps.forEach((step, index) => {
+                    const angle = ((index * 360 / this.enzymeSteps.length + 360 / (this.enzymeSteps.length * 2)) - 90) * (Math.PI / 180);
+                    const x = centerX + radius * Math.cos(angle) - 30;
+                    const y = centerY + radius * Math.sin(angle) - 30 - verticalOffset;
+
+                    const target = document.createElement('div');
+                    target.className = 'product-target';
+                    target.style.left = `${x}px`;
+                    target.style.top = `${y}px`;
+                    target.dataset.target = step.target;
+
+                    this.gameArea.appendChild(target);
+                    this.productTargets.push(target);
+                });
             }
 
             createReactionTypes() {
@@ -737,7 +821,7 @@
                         
                         const placedReactions = document.querySelectorAll('.reaction-type[style*="pointer-events: none"]');
                         if (placedReactions.length === Object.keys(this.reactionMapping).length) {
-                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                            this.startStep4();
                         }
                     } else {
                         this.score = Math.max(0, this.score - 5);
@@ -747,6 +831,103 @@
                 }
             }
 
+            createProducts() {
+                // Get unique products
+                const uniqueProducts = [...new Set(Object.values(this.productMapping))];
+                
+                // Create bubbles for each unique product type
+                uniqueProducts.forEach((product, index) => {
+                    const count = Object.values(this.productMapping)
+                        .filter(p => p === product).length;
+                    
+                    // Create multiple bubbles for products that appear more than once
+                    for (let i = 0; i < count; i++) {
+                        const productBubble = document.createElement('div');
+                        productBubble.className = 'molecule product';  // Use molecule class for consistent styling
+                        productBubble.textContent = product;
+                        productBubble.dataset.type = product;
+                        productBubble.style.backgroundColor = this.productColors[product];
+
+                        const x = (this.gameArea.clientWidth / (uniqueProducts.length + 1)) * (index + 1) - 25;
+                        const y = this.gameArea.clientHeight - 80;
+                        
+                        productBubble.style.left = `${x}px`;
+                        productBubble.style.top = `${y}px`;
+
+                        this.gameArea.appendChild(productBubble);
+                        this.products.push(productBubble);
+                    }
+                });
+            }
+
+            setupProductDragAndDrop() {
+                this.products.forEach(product => {
+                    product.addEventListener('mousedown', (e) => this.startDrag(e, product));
+                    product.addEventListener('touchstart', (e) => this.startDrag(e, product));
+                });
+            }
+
+            checkProductPlacement() {
+                const productRect = this.currentMolecule.getBoundingClientRect();
+                const productCenter = {
+                    x: productRect.left + productRect.width / 2,
+                    y: productRect.top + productRect.height / 2
+                };
+
+                let closestTarget = null;
+                let minDistance = Infinity;
+
+                this.productTargets.forEach(target => {
+                    const targetRect = target.getBoundingClientRect();
+                    const targetCenter = {
+                        x: targetRect.left + targetRect.width / 2,
+                        y: targetRect.top + targetRect.height / 2
+                    };
+
+                    const distance = Math.hypot(
+                        productCenter.x - targetCenter.x,
+                        productCenter.y - targetCenter.y
+                    );
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestTarget = target;
+                    }
+                });
+
+                if (minDistance < 50) {
+                    const existingProduct = this.targetIsOccupied(closestTarget);
+                    if (existingProduct) {
+                        return;
+                    }
+
+                    const productType = this.currentMolecule.dataset.type;
+                    const expectedProduct = this.productMapping[closestTarget.dataset.target];
+                    const isCorrect = productType === expectedProduct;
+
+                    if (isCorrect) {
+                        this.score += 10;
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Correct! +10 points', 'correct');
+                        
+                        const targetRect = closestTarget.getBoundingClientRect();
+                        const gameRect = this.gameArea.getBoundingClientRect();
+                        this.currentMolecule.style.left = `${targetRect.left - gameRect.left + 5}px`;
+                        this.currentMolecule.style.top = `${targetRect.top - gameRect.top + 5}px`;
+                        this.currentMolecule.style.pointerEvents = 'none';
+                        
+                        const placedProducts = document.querySelectorAll('.product[style*="pointer-events: none"]');
+                        if (placedProducts.length === Object.keys(this.productMapping).length) {
+                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                        }
+                    } else {
+                        this.score = Math.max(0, this.score - 5);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage('Try again! -5 points', 'incorrect');
+                    }
+                }
+            }
+            
             targetIsOccupied(target) {
                 const targetRect = target.getBoundingClientRect();
                 const gameRect = this.gameArea.getBoundingClientRect();
@@ -783,6 +964,8 @@
                         this.checkEnzymePlacement();
                     } else if (this.currentStep === 3 && this.currentMolecule.classList.contains('reaction-type')) {
                         this.checkReactionTypePlacement();
+                    } else if (this.currentStep === 4 && this.currentMolecule.classList.contains('product')) {
+                        this.checkProductPlacement();
                     }
                     this.currentMolecule = null;
                 }
@@ -836,6 +1019,28 @@
                         this.score = Math.max(0, this.score - 2);
                         this.scoreElement.textContent = this.score;
                         this.showMessage(`Next reaction type for ${nextTarget[0]}: ${nextTarget[1]} (-2 points)`, 'hint');
+                    }
+                } else if (this.currentStep === 4) {
+                    const completedProducts = new Set(
+                        Array.from(document.querySelectorAll('.product[style*="pointer-events: none"]'))
+                            .map(p => {
+                                const rect = p.getBoundingClientRect();
+                                const targets = this.productTargets.filter(t => {
+                                    const tRect = t.getBoundingClientRect();
+                                    return Math.abs(rect.left - tRect.left) < 10 && Math.abs(rect.top - tRect.top) < 10;
+                                });
+                                return targets[0]?.dataset.target;
+                            })
+                            .filter(Boolean)
+                    );
+                    
+                    let nextTarget = Object.entries(this.productMapping)
+                        .find(([target, _]) => !completedProducts.has(target));
+                    
+                    if (nextTarget) {
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Next product for ${nextTarget[0]}: ${nextTarget[1]} (-2 points)`, 'hint');
                     }
                 }
             }
@@ -913,28 +1118,35 @@
             }
 
             reset() {
+                // Remove all elements section:
                 this.molecules.forEach(molecule => molecule.remove());
                 this.enzymes.forEach(enzyme => enzyme.remove());
                 this.reactionTypes.forEach(reaction => reaction.remove());
+                this.products.forEach(product => product.remove());     // Add this line
                 this.targetZones.forEach(zone => zone.remove());
                 this.enzymeTargets.forEach(target => target.remove());
+                this.productTargets.forEach(target => target.remove()); // Add this line
 
                 const existingArrow = this.gameArea.querySelector('.cycle-arrow');
                 if (existingArrow) {
                     existingArrow.remove();
                 }
                 
+                // Reset all variables section:
                 this.score = 0;
                 this.currentStep = 1;
                 this.scoreElement.textContent = '0';
                 this.molecules = [];
                 this.enzymes = [];
                 this.reactionTypes = [];
+                this.products = [];        // Add this line
                 this.targetZones = [];
                 this.enzymeTargets = [];
+                this.productTargets = [];  // Add this line
                 this.isDragging = false;
                 this.currentMolecule = null;
                 
+                // Re-initialize game:
                 this.createTargetZones();
                 this.createCycleArrow();
                 this.createMolecules();
