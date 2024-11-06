@@ -254,6 +254,7 @@
             constructor() {
                 this.score = 0;
                 this.currentStep = 1;
+                this.messageTimer = null;
                 this.isDragging = false;
                 this.currentMolecule = null;
                 this.molecules = [];
@@ -642,18 +643,25 @@
             }
 
             showMessage(text, type) {
+                // Clear any existing timer
+                if (this.messageTimer) {
+                    clearTimeout(this.messageTimer);
+                    this.messageTimer = null;
+                }
+
                 this.messageElement.textContent = text;
                 this.messageElement.className = type;
                 this.messageElement.style.display = 'block';
                 
                 if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes', 'Step 3: Determine Reaction Types', 'Step 4: Add Substrates and Products'].includes(text)) {
-                    setTimeout(() => {
+                    this.messageTimer = setTimeout(() => {
                         this.messageElement.textContent = 
                             this.currentStep === 1 ? 'Step 1: Place the Substrates' :
                             this.currentStep === 2 ? 'Step 2: Place the Enzymes' :
                             this.currentStep === 3 ? 'Step 3: Determine Reaction Types' :
                             'Step 4: Add Substrates and Products';
                         this.messageElement.className = '';
+                        this.messageTimer = null;
                     }, 2000);
                 }
             }
@@ -718,7 +726,7 @@
             createProductTargets() {
                 const centerX = this.gameArea.clientWidth / 2;
                 const centerY = this.gameArea.clientHeight / 2;
-                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.4; // Larger radius than enzyme targets
+                const radius = Math.min(this.gameArea.clientWidth, this.gameArea.clientHeight) * 0.35; // Changed from 0.4 to 0.35
                 const verticalOffset = this.gameArea.clientHeight * 0.1;
 
                 this.enzymeSteps.forEach((step, index) => {
@@ -1118,7 +1126,10 @@
             }
 
             reset() {
-                // Remove all elements section:
+                if (this.messageTimer) {
+                    clearTimeout(this.messageTimer);
+                    this.messageTimer = null;
+                }
                 this.molecules.forEach(molecule => molecule.remove());
                 this.enzymes.forEach(enzyme => enzyme.remove());
                 this.reactionTypes.forEach(reaction => reaction.remove());
