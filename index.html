@@ -221,6 +221,72 @@
             cursor: not-allowed;
         }
 
+        .counter-container {
+            position: absolute;  /* Change from fixed to absolute */
+            bottom: 0;      /* Adjust this value as needed */
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            z-index: 1000;      /* Add this to ensure counters appear above other elements */
+        }
+
+        .counter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .counter.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .counter-name {
+            font-size: 12px;
+            margin-bottom: 5px;
+            text-align: center;
+            min-height: 30px;
+        }
+
+        .counter-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .counter-button {
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            border: none;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .counter-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .counter-value {
+            min-width: 40px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
         @supports (padding-top: env(safe-area-inset-top)) {
             .header {
                 padding-top: env(safe-area-inset-top);
@@ -264,7 +330,7 @@
                 this.enzymeTargets = [];
                 this.products = [];
                 this.productTargets = [];
-                
+            
                 this.steps = [
                     { name: "Citrate", color: "#2196F3" },
                     { name: "cis-Aconitate", color: "#9C27B0" },
@@ -320,9 +386,9 @@
                     "cis-Aconitate-Isocitrate": "–H₂O",
                     "Isocitrate-Oxalosuccinate": "NAD⁺ → NADH",
                     "Oxalosuccinate-α-Ketoglutarate": "+CO₂",
-                    "α-Ketoglutarate-Succinyl-CoA": "NAD⁺ → NADH\nCO₂",
+                    "α-Ketoglutarate-Succinyl-CoA": "NAD⁺ → NADH\n+CO₂",
                     "Succinyl-CoA-Succinate": "ADP → ATP",
-                    "Succinate-Fumarate": "Q → QH₂",
+                    "Succinate-Fumarate": "FAD → FADH₂",
                     "Fumarate-Malate": "–H₂O",
                     "Malate-Oxaloacetate": "NAD⁺ → NADH",
                     "Oxaloacetate-Citrate": "–H₂O"
@@ -333,10 +399,19 @@
                     "–H₂O": "#4ECDC4",
                     "NAD⁺ → NADH": "#9B59B6",
                     "+CO₂": "#96CEB4",
-                    "Q → QH₂": "#D4A5A5",
+                    "FAD → FADH₂": "#D4A5A5",
                     "ADP → ATP": "#FF6B6B",
-                    "NAD⁺ → NADH\nCO₂": "#45B7D1"
+                    "NAD⁺ → NADH\n+CO₂": "#45B7D1"
                 };
+
+                this.counters = [
+                    { name: "H₂O", target: -2, current: 0 },
+                    { name: "CO₂", target: 2, current: 0 },
+                    { name: "NAD⁺ → NADH", target: 3, current: 0 },
+                    { name: "FAD → FADH₂", target: 1, current: 0 },
+                    { name: "ADP → ATP", target: 1, current: 0 },
+                    { name: "", target: null, current: 0 } // Placeholder for Step 6
+                ];
 
                 this.init();
             }
@@ -653,13 +728,19 @@
                 this.messageElement.className = type;
                 this.messageElement.style.display = 'block';
                 
-                if (!['Step 1: Place the Substrates', 'Step 2: Place the Enzymes', 'Step 3: Determine Reaction Types', 'Step 4: Add Substrates and Products'].includes(text)) {
+                if (!['Step 1: Place the Substrates', 
+                      'Step 2: Place the Enzymes',
+                      'Step 3: Determine Reaction Types',
+                      'Step 4: Add Substrates and Products',
+                      'Step 5: Balance the Products'
+                    ].includes(text)) {
                     this.messageTimer = setTimeout(() => {
                         this.messageElement.textContent = 
                             this.currentStep === 1 ? 'Step 1: Place the Substrates' :
                             this.currentStep === 2 ? 'Step 2: Place the Enzymes' :
                             this.currentStep === 3 ? 'Step 3: Determine Reaction Types' :
-                            'Step 4: Add Substrates and Products';
+                            this.currentStep === 4 ? 'Step 4: Add Substrates and Products' :
+                            'Step 5: Balance the Products';
                         this.messageElement.className = '';
                         this.messageTimer = null;
                     }, 2000);
@@ -868,6 +949,8 @@
                 });
             }
 
+            
+
             setupProductDragAndDrop() {
                 this.products.forEach(product => {
                     product.addEventListener('mousedown', (e) => this.startDrag(e, product));
@@ -926,7 +1009,7 @@
                         
                         const placedProducts = document.querySelectorAll('.product[style*="pointer-events: none"]');
                         if (placedProducts.length === Object.keys(this.productMapping).length) {
-                            this.showMessage('Congratulations! You\'ve completed the Krebs Cycle!', 'correct');
+                            this.startStep5(); // Start Step 5 after Step 4 is completed
                         }
                     } else {
                         this.score = Math.max(0, this.score - 5);
@@ -976,6 +1059,102 @@
                         this.checkProductPlacement();
                     }
                     this.currentMolecule = null;
+                }
+            }
+
+            startStep5() {
+                this.currentStep = 5;
+                this.showMessage('Step 5: Balance the Products', '');
+                this.createCounters();
+            }
+
+            createCounters() {
+                const container = document.createElement('div');
+                container.className = 'counter-container';
+
+                this.counters.forEach((counter, index) => {
+                    const counterDiv = document.createElement('div');
+                    counterDiv.className = 'counter';
+                    if (index === 5) counterDiv.classList.add('disabled');
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'counter-name';
+                    nameDiv.textContent = counter.name;
+                    counterDiv.appendChild(nameDiv);
+
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'counter-controls';
+
+                    const minusButton = document.createElement('button');
+                    minusButton.className = 'counter-button';
+                    minusButton.textContent = '−';
+                    minusButton.onclick = () => this.updateCounter(index, -1);
+
+                    const valueSpan = document.createElement('span');
+                    valueSpan.className = 'counter-value';
+                    valueSpan.textContent = '0';
+
+                    const plusButton = document.createElement('button');
+                    plusButton.className = 'counter-button';
+                    plusButton.textContent = '+';
+                    plusButton.onclick = () => this.updateCounter(index, 1);
+
+                    controlsDiv.appendChild(minusButton);
+                    controlsDiv.appendChild(valueSpan);
+                    controlsDiv.appendChild(plusButton);
+                    counterDiv.appendChild(controlsDiv);
+
+                    container.appendChild(counterDiv);
+                });
+
+                this.gameArea.appendChild(container);
+            }
+
+            updateCounter(index, change) {
+                this.counters[index].current += change;
+                const valueSpan = document.querySelectorAll('.counter-value')[index];
+                if (this.counters[index].current > 0) {
+                    valueSpan.textContent = '+' + this.counters[index].current;
+                } else if (this.counters[index].current < 0) {
+                    valueSpan.textContent = '–' + Math.abs(this.counters[index].current);
+                } else {
+                    valueSpan.textContent = '0';
+                }
+
+                this.checkStep5Completion();
+            }
+
+            checkStep5Completion() {
+                const allCorrect = this.counters.slice(0, 5).every(counter => 
+                    counter.current === counter.target
+                );
+
+                if (allCorrect) {
+                    this.score += 50;
+                    this.scoreElement.textContent = this.score;
+                    this.showMessage('Congratulations! All product totals are correct! +50 points', 'correct');
+                    // Disable all counter buttons
+                    const buttons = document.querySelectorAll('.counter-button');
+                    buttons.forEach(button => button.disabled = true);
+                    // You might want to add a call to start Step 6 here later
+                }
+            }
+
+            showHint() {
+                if (this.currentStep === 5) {
+                    const incorrectCounters = this.counters.slice(0, 5).filter(counter => 
+                        counter.current !== counter.target
+                    );
+                    
+                    if (incorrectCounters.length > 0) {
+                        const randomCounter = incorrectCounters[Math.floor(Math.random() * incorrectCounters.length)];
+                        this.score = Math.max(0, this.score - 2);
+                        this.scoreElement.textContent = this.score;
+                        this.showMessage(`Target for ${randomCounter.name}: ${randomCounter.target > 0 ? '+' + randomCounter.target : randomCounter.target} (-2 points)`, 'hint');
+                    }
+                } else {
+                    // Previous hint logic remains unchanged
+                    super.showHint();
                 }
             }
 
@@ -1142,6 +1321,16 @@
                 if (existingArrow) {
                     existingArrow.remove();
                 }
+
+                const counterContainer = document.querySelector('.counter-container');
+                if (counterContainer) {
+                    counterContainer.remove();
+                }
+                
+                // Reset counters
+                this.counters.forEach(counter => {
+                    counter.current = 0;
+                });
                 
                 // Reset all variables section:
                 this.score = 0;
