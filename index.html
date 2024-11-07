@@ -1329,20 +1329,26 @@
             }
 
             createFinishButton() {
-                const centerX = this.gameArea.clientWidth / 2;
-                const centerY = this.gameArea.clientHeight / 2;
-                const verticalOffset = this.gameArea.clientHeight * 0.1;
+                // Remove existing finish button if any
+                const existingButton = document.querySelector('#finish-btn');
+                if (existingButton) {
+                    existingButton.remove();
+                }
 
-                const finishButton = document.createElement('div');
-                finishButton.className = 'reaction-type';
+                // Create a new button
+                const finishButton = document.createElement('button');
+                finishButton.id = 'finish-btn';
                 finishButton.textContent = 'Finish';
-                finishButton.style.backgroundColor = '#ff0000';
-                finishButton.style.left = `${centerX - 25}px`;
-                finishButton.style.top = `${centerY - verticalOffset - 25}px`;
-                finishButton.style.cursor = 'pointer';
+                finishButton.style.position = 'absolute';
+                finishButton.style.left = '50%';
+                finishButton.style.bottom = '80px'; // Position above the control buttons
+                finishButton.style.transform = 'translateX(-50%)';
                 finishButton.style.zIndex = '1000';
-
+                
+                // Add click handler
                 finishButton.addEventListener('click', () => this.finishGame());
+
+                // Add to the game area
                 this.gameArea.appendChild(finishButton);
             }
 
