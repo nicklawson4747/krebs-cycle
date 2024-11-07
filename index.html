@@ -1335,14 +1335,18 @@
                     existingButton.remove();
                 }
 
+                const centerX = this.gameArea.clientWidth / 2;
+                const centerY = this.gameArea.clientHeight / 2;
+                const verticalOffset = this.gameArea.clientHeight * 0.1;
+
                 // Create a new button
                 const finishButton = document.createElement('button');
                 finishButton.id = 'finish-btn';
                 finishButton.textContent = 'Finish';
                 finishButton.style.position = 'absolute';
-                finishButton.style.left = '50%';
-                finishButton.style.bottom = '80px'; // Position above the control buttons
-                finishButton.style.transform = 'translateX(-50%)';
+                finishButton.style.left = `${centerX}px`;
+                finishButton.style.top = `${centerY - verticalOffset}px`;
+                finishButton.style.transform = 'translate(-50%, -50%)';
                 finishButton.style.zIndex = '1000';
                 
                 // Add click handler
@@ -1528,6 +1532,9 @@
                 this.score += 10;
                 this.scoreElement.textContent = this.score;
 
+                // Clear the message
+                this.messageElement.textContent = '';
+
                 // Clear the game area
                 while (this.gameArea.firstChild) {
                     this.gameArea.firstChild.remove();
@@ -1543,13 +1550,13 @@
 
                 const winTitle = document.createElement('h1');
                 winTitle.textContent = 'You Win!';
-                winTitle.style.fontSize = '48px';
+                winTitle.style.fontSize = '32px';
                 winTitle.style.color = '#4CAF50';
                 winTitle.style.marginBottom = '20px';
 
                 const scoreText = document.createElement('p');
                 scoreText.textContent = `Final Score: ${this.score} points`;
-                scoreText.style.fontSize = '24px';
+                scoreText.style.fontSize = '16px';
                 scoreText.style.color = '#333';
 
                 winContainer.appendChild(winTitle);
